@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Живая Мандала Души — быстрое вращение</title>
+<style>
+:root{
+  --bg:#020617;
+  --panel:#04091d;
+  --gold:#e8c66a;
+  --text:#fff9e8;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  min-height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Arial,sans-serif;
+}
+body{
+  display:flex;
+  justify-content:center;
+  overflow-x:hidden;
+}
+.app{
+  width:min(100vw,800px);
+  min-height:100vh;
+  display:grid;
+  grid-template-rows:auto 1fr;
+  background:#020617;
+}
+.toolbar{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  padding:10px;
+  background:rgba(4,9,29,.96);
+  border-bottom:1px solid rgba(232,198,106,.45);
+  z-index:3;
+}
+.control{
+  grid-column:1/-1;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+label{
+  color:var(--gold);
+  font-size:13px;
+  font-weight:700;
+}
+input,button{
+  min-height:44px;
+  border:1px solid rgba(232,198,106,.72);
+  border-radius:11px;
+  background:linear-gradient(180deg,#17479f,#0b2b68);
+  color:var(--text);
+  padding:9px 12px;
+  font:700 14px Arial,sans-serif;
+}
+input{font-weight:500}
+button{
+  cursor:pointer;
+  touch-action:manipulation;
+}
+button:active{filter:brightness(1.2)}
+button:disabled{opacity:.6}
+.stage{
+  position:relative;
+  min-height:calc(100vh - 132px);
+  height:100%;
+  display:grid;
+  place-items:stretch;
+  overflow:hidden;
+  background:#020617;
+}
+canvas{
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:0;
+}
+.status{
+  position:absolute;
+  left:50%;
+  bottom:10px;
+  transform:translateX(-50%);
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(0,0,0,.38);
+  color:rgba(255,245,214,.82);
+  font-size:11px;
+  white-space:nowrap;
+  pointer-events:none;
+}
+@media(min-width:700px){
+  .toolbar{
+    grid-template-columns:1.2fr 1fr 1fr;
+    align-items:end;
+  }
+  .control{grid-column:auto}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="toolbar">
+    <div class="control">
+      <label for="birth">Дата рождения</label>
+      <input id="birth" type="date" value="1969-05-22">
+    </div>
+    <button id="downloadVideo" type="button">Скачать видео</button>
+    <button id="downloadImage" type="button">Скачать изображение</button>
+  </header>
+
+  <main class="stage">
+    <canvas id="mandala" width="1080" height="1350"></canvas>
+    <div class="status" id="status">Живая Мандала Души</div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const PALETTE=Object.freeze({
+  1:{base:"#ff163f",light:"#ff9aae",dark:"#740018",glow:"#ff3159"},
+  2:{base:"#ff7200",light:"#ffbd70",dark:"#842800",glow:"#ff8b20"},
+  3:{base:"#ffd600",light:"#fff292",dark:"#8b6400",glow:"#ffe64d"},
+  4:{base:"#79e600",light:"#c4ff7d",dark:"#337600",glow:"#9dff34"},
+  5:{base:"#008b45",light:"#5de69a",dark:"#003c20",glow:"#12d06b"},
+  6:{base:"#00d5ca",light:"#86fff6",dark:"#00615c",glow:"#2af4e8"},
+  7:{base:"#25b8ff",light:"#a5e5ff",dark:"#07578e",glow:"#53c9ff"},
+  8:{base:"#1759ff",light:"#98b5ff",dark:"#071e7a",glow:"#4679ff"},
+  9:{base:"#7d28ff",light:"#c9a1ff",dark:"#35106c",glow:"#9d55ff"},
+ 10:{base:"#b35aff",light:"#e0b6ff",dark:"#581b80",glow:"#c77cff"},
+ 11:{base:"#ff4c9b",light:"#ffafd2",dark:"#7a1647",glow:"#ff69af"},
+ 12:{base:"#ef00cf",light:"#ff93ec",dark:"#70005e",glow:"#ff35df"}
+});
+
+function fold12(value){
+  let n=Math.abs(Number(value))||0;
+  while(n>12){
+    n=String(n).split("").reduce((s,d)=>s+Number(d),0);
+  }
+  return n===0?12:n;
+}
+
+function calculateSoulProfile(dateString){
+  const [year,month,day]=dateString.split("-").map(Number);
+  const P={};
+  P[1]=fold12(day);
+  P[2]=fold12(month);
+  P[3]=fold12(year);
+  P[4]=fold12(P[1]+P[2]);
+  P[5]=fold12(P[1]+P[3]);
+  P[6]=fold12(P[2]+P[3]);
+  P[7]=fold12(P[4]+P[5]);
+  P[8]=fold12(P[4]+P[6]);
+  P[9]=fold12(P[5]+P[6]);
+  P[10]=fold12(P[7]+P[8]);
+  P[11]=fold12(P[7]+P[9]);
+  P[12]=fold12(P[8]+P[9]);
+  return {birthDate:dateString,positions:P};
+}
+
+function createSectorMesh(radius){
+  const t=Math.tan(Math.PI/12);
+  const r1=radius*.27,r2=radius*.55,r3=radius*.80,r4=radius;
+  const w1=r1*t,w2=r2*t,w3=r3*t,w4=r4*t;
+  const O=[0,0];
+  const A=[-w1,r1],B=[w1,r1];
+  const C=[-w2,r2],D=[0,r2],E=[w2,r2];
+  const F=[-w3,r3],G=[-w3/3,r3],H=[w3/3,r3],I=[w3,r3];
+  const J=[-w4,r4],K=[0,r4],L=[w4,r4];
+  return [
+    {p:1,pts:[O,A,B]},{p:2,pts:[A,B,D]},
+    {p:3,pts:[A,D,C]},{p:5,pts:[B,E,D]},
+    {p:4,pts:[C,D,G]},{p:7,pts:[C,G,F]},
+    {p:9,pts:[D,H,G]},{p:6,pts:[D,E,H]},
+    {p:11,pts:[E,I,H]},{p:8,pts:[F,G,J]},
+    {p:10,pts:[G,H,K]},{p:12,pts:[H,I,L]}
+  ];
+}
+
+const canvas=document.getElementById("mandala");
+const ctx=canvas.getContext("2d",{alpha:false});
+const birthInput=document.getElementById("birth");
+const videoButton=document.getElementById("downloadVideo");
+const imageButton=document.getElementById("downloadImage");
+const statusNode=document.getElementById("status");
+
+let profile=calculateSoulProfile(birthInput.value);
+let startedAt=performance.now();
+
+function hexToRgb(hex){
+  const n=parseInt(hex.slice(1),16);
+  return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+function rgba(hex,a){
+  const {r,g,b}=hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function pathTriangle(pts){
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);
+  ctx.lineTo(pts[1][0],pts[1][1]);
+  ctx.lineTo(pts[2][0],pts[2][1]);
+  ctx.closePath();
+}
+
+function resizeCanvas(){
+  const rect=canvas.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  canvas.width=Math.max(540,Math.round(rect.width*dpr));
+  canvas.height=Math.max(675,Math.round(rect.height*dpr));
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+function drawBackground(w,h,time){
+  const cx=w/2,cy=h*.52;
+  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.72);
+  bg.addColorStop(0,"#15449d");
+  bg.addColorStop(.28,"#0b2d78");
+  bg.addColorStop(.68,"#06163f");
+  bg.addColorStop(1,"#020617");
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,w,h);
+
+  for(let i=0;i<180;i++){
+    const a=i*2.399963;
+    const d=((i*61)%100)/100*Math.max(w,h)*.62;
+    const x=cx+Math.cos(a)*d;
+    const y=cy+Math.sin(a)*d;
+    const tw=.18+.68*(.5+.5*Math.sin(time*.0018+i*1.37));
+    ctx.beginPath();
+    ctx.fillStyle=`rgba(225,241,255,${tw})`;
+    ctx.arc(x,y,.35+(i%5)*.28,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawFacet(pts,mineral,time,index,intensity){
+  const cx=(pts[0][0]+pts[1][0]+pts[2][0])/3;
+  const cy=(pts[0][1]+pts[1][1]+pts[2][1])/3;
+  const maxR=Math.max(...pts.map(([x,y])=>Math.hypot(x-cx,y-cy)))+12;
+  const shimmer=.5+.5*Math.sin(time*.002+index*1.4);
+
+  ctx.save();
+  pathTriangle(pts);
+  ctx.shadowColor=mineral.glow;
+  ctx.shadowBlur=8+18*intensity;
+
+  const fill=ctx.createRadialGradient(cx-maxR*.38,cy-maxR*.52,1,cx,cy,maxR);
+  fill.addColorStop(0,`rgba(255,255,255,${.48+.18*shimmer})`);
+  fill.addColorStop(.1,mineral.light);
+  fill.addColorStop(.38,mineral.base);
+  fill.addColorStop(.8,mineral.dark);
+  fill.addColorStop(1,mineral.dark);
+  ctx.fillStyle=fill;
+  ctx.fill();
+
+  ctx.clip();
+  const glass=ctx.createLinearGradient(pts[0][0],pts[0][1],pts[2][0],pts[2][1]);
+  glass.addColorStop(0,"rgba(255,255,255,.24)");
+  glass.addColorStop(.28,"rgba(255,255,255,.04)");
+  glass.addColorStop(.65,"rgba(0,0,0,.16)");
+  glass.addColorStop(1,rgba(mineral.light,.16));
+  ctx.fillStyle=glass;
+  ctx.fillRect(cx-maxR,cy-maxR,maxR*2,maxR*2);
+  ctx.restore();
+
+  ctx.save();
+  pathTriangle(pts);
+  ctx.lineWidth=1.05+intensity*.8;
+  ctx.strokeStyle=rgba(mineral.light,.88);
+  ctx.shadowColor=mineral.glow;
+  ctx.shadowBlur=7+12*intensity;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMandala(positions,radius,time,intensity){
+  const mesh=createSectorMesh(radius);
+  for(let sector=0;sector<12;sector++){
+    ctx.save();
+    ctx.rotate(sector*Math.PI/6);
+    for(let i=0;i<mesh.length;i++){
+      const facet=mesh[i];
+      drawFacet(
+        facet.pts,
+        PALETTE[positions[facet.p]],
+        time,
+        i+sector*12,
+        intensity
+      );
+    }
+    ctx.restore();
+  }
+}
+
+function drawCore(radius,time){
+  const pulse=.5+.5*Math.sin(time*.006);
+  const r=radius*(.035+.014*pulse);
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+  const halo=ctx.createRadialGradient(0,0,0,0,0,r*8);
+  halo.addColorStop(0,"rgba(255,255,255,1)");
+  halo.addColorStop(.12,"rgba(255,248,190,.95)");
+  halo.addColorStop(.34,"rgba(255,206,70,.55)");
+  halo.addColorStop(1,"rgba(255,142,0,0)");
+  ctx.fillStyle=halo;
+  ctx.beginPath();
+  ctx.arc(0,0,r*8,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function render(time){
+  const w=canvas.clientWidth;
+  const h=canvas.clientHeight;
+  drawBackground(w,h,time);
+
+  const cx=w/2;
+  const cy=h*.50;
+  const radius=Math.min(w,h)*.495;
+
+  const reveal=Math.min(1,(time-startedAt)/1200);
+  const revealScale=.05+.95*(reveal*reveal*(3-2*reveal));
+
+  const rotation=performance.now()*0.0018;      // fast clockwise rotation
+  const travel=(time*.00360)%1;  // fast tunnel movement
+  const layers=6;
+
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.scale(revealScale,revealScale);
+
+  for(let layer=layers-1;layer>=0;layer--){
+    const depth=((layer/layers)+travel)%1;
+    const eased=depth*depth*(3-2*depth);
+    const scale=0.92;
+    const alpha=.25+eased*.75;
+
+    ctx.save();
+    ctx.rotate(rotation+layer*.12+depth*.24);
+    ctx.scale(scale,scale);
+    ctx.globalAlpha=alpha;
+    drawMandala(profile.positions,radius,time+layer*100,alpha);
+    drawCore(radius,time+layer*90);
+    ctx.restore();
+  }
+
+  drawCore(radius,time);
+  ctx.restore();
+
+  requestAnimationFrame(render);
+}
+
+birthInput.addEventListener("change",()=>{
+  profile=calculateSoulProfile(birthInput.value);
+  startedAt=performance.now();
+});
+
+imageButton.addEventListener("click",()=>{
+  try{
+    const link=document.createElement("a");
+    link.download=`Мандала_Души_${birthInput.value}.png`;
+    link.href=canvas.toDataURL("image/png",1);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    statusNode.textContent="Изображение сохранено";
+    setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
+  }catch(error){
+    alert("Не удалось сохранить изображение.");
+  }
+});
+
+videoButton.addEventListener("click",()=>{
+  if(!window.MediaRecorder||typeof canvas.captureStream!=="function"){
+    alert("Запись видео не поддерживается этим браузером.");
+    return;
+  }
+
+  const type=MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+    ?"video/webm;codecs=vp8"
+    :"video/webm";
+
+  const stream=canvas.captureStream(20);
+  const chunks=[];
+  let recorder;
+
+  try{
+    recorder=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:4500000});
+  }catch(error){
+    stream.getTracks().forEach(track=>track.stop());
+    alert("Не удалось запустить запись.");
+    return;
+  }
+
+  const oldText=videoButton.textContent;
+  videoButton.disabled=true;
+  videoButton.textContent="Запись 5 секунд…";
+  statusNode.textContent="Записывается видео";
+
+  recorder.ondataavailable=e=>{
+    if(e.data&&e.data.size>0) chunks.push(e.data);
+  };
+
+  recorder.onstop=()=>{
+    stream.getTracks().forEach(track=>track.stop());
+    videoButton.disabled=false;
+    videoButton.textContent=oldText;
+
+    const size=chunks.reduce((s,c)=>s+c.size,0);
+    if(size<1000){
+      alert("Браузер не создал видео. Откройте страницу через GitHub Pages в Chrome.");
+      statusNode.textContent="Живая Мандала Души";
+      return;
+    }
+
+    const blob=new Blob(chunks,{type});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.download=`Мандала_Души_${birthInput.value}.webm`;
+    link.href=url;
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(()=>{
+      link.remove();
+      URL.revokeObjectURL(url);
+    },3000);
+
+    statusNode.textContent="Видео сохранено";
+    setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
+  };
+
+  recorder.start(250);
+  setTimeout(()=>{
+    if(recorder.state==="recording"){
+      recorder.requestData();
+      setTimeout(()=>recorder.stop(),300);
+    }
+  },5000);
+});
+
+window.addEventListener("resize",resizeCanvas);
+window.addEventListener("orientationchange",()=>{
+  setTimeout(resizeCanvas,180);
+});
+resizeCanvas();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
