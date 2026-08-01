@@ -24,7 +24,7 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 <body>
 <div class="app">
 <header class="toolbar">
-<div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date"></div>
+<div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date" name="mandala_birth_input" autocomplete="off" data-lpignore="true"></div>
 <button id="downloadVideo" type="button">Скачать видео + музыку</button>
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
@@ -344,41 +344,52 @@ let generationId=0;
 let activeRecorder=null;
 let activeRecordingStream=null;
 
-birthInput.addEventListener("change",()=>{
-  generationId++;
-  const nextProfile=calculateSoulProfile(birthInput.value);
+function syncProfileFromInput(showStatus=true){
+  const value=birthInput.value;
+  const nextProfile=calculateSoulProfile(value);
 
   if(!nextProfile){
     profile=null;
-    statusNode.textContent="Введите дату рождения";
-    return;
+    if(timer){
+      clearInterval(timer);
+      timer=0;
+    }
+    soundOn=false;
+    if(showStatus) statusNode.textContent="Введите дату рождения";
+    return false;
   }
 
   profile=nextProfile;
   startedAt=performance.now();
 
-  // Полностью перестраиваем музыку для новой даты.
   if(timer){
     clearInterval(timer);
     timer=0;
   }
 
-  soundOn=false;
-
-  if(ac && ac.state==="running"){
-    ensureAudio();
+  // Новая дата — новая музыкальная последовательность.
+  if(soundOn && ac && ac.state==="running"){
+    startSequence();
   }
 
-  statusNode.textContent=`Мандала обновлена: ${birthInput.value.split("-").reverse().join(".")}`;
-  setTimeout(()=>statusNode.textContent="Живая Мандала Души",1600);
-});
+  if(showStatus){
+    const displayDate=value.split("-").reverse().join(".");
+    statusNode.textContent=`Мандала обновлена: ${displayDate}`;
+    setTimeout(()=>statusNode.textContent="Коснись мандалы — включится звук",1600);
+  }
+  return true;
+}
+
+birthInput.addEventListener("input",()=>syncProfileFromInput(true));
+birthInput.addEventListener("change",()=>syncProfileFromInput(true));
 
 imageButton.addEventListener("click",async()=>{
-  if(!profile||!birthInput.value){alert("Сначала введи дату рождения.");return}
+  if(!syncProfileFromInput(false)){
+    alert("Сначала введи дату рождения.");
+    return;
+  }
 
   try{
-    // Recalculate from the current field value immediately before export.
-    profile=calculateSoulProfile(birthInput.value);
     const exportTime=performance.now();
     renderExportFrame(exportTime);
 
@@ -391,7 +402,7 @@ imageButton.addEventListener("click",async()=>{
     link.remove();
 
     statusNode.textContent=`PNG сохранён: ${safeDate}`;
-    setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
+    setTimeout(()=>statusNode.textContent="Коснись мандалы — включится звук",1800);
   }catch(error){
     console.error(error);
     alert("Не удалось сохранить изображение.");
@@ -399,11 +410,14 @@ imageButton.addEventListener("click",async()=>{
 });
 
 videoButton.addEventListener("click",async()=>{
-  if(!birthInput.value||!profile){alert("Сначала введи дату рождения.");return}
-  const audioReady=await ensureAudio();
+  if(!syncProfileFromInput(false)){
+    alert("Сначала введи дату рождения.");
+    return;
+  }
 
+  const audioReady=await ensureAudio();
   if(!audioReady || !ac || ac.state!=="running"){
-    alert("Сначала коснись мандалы, чтобы включить музыку, затем нажми запись видео.");
+    alert("Коснись мандалы, чтобы включить музыку, затем снова нажми кнопку видео.");
     return;
   }
 
@@ -412,72 +426,78 @@ videoButton.addEventListener("click",async()=>{
     return;
   }
 
-  profile=calculateSoulProfile(birthInput.value);
   const recordingDate=birthInput.value;
-  const recordingGeneration=generationId;
   const safeDate=recordingDate.split("-").reverse().join("-");
 
-  // WebM + Opus надёжно сохраняет WebAudio на Android Chrome.
   const type=
-    MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-      ?"video/webm;codecs=vp9,opus":
     MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
       ?"video/webm;codecs=vp8,opus":
-    MediaRecorder.isTypeSupported("video/webm;codecs=opus")
-      ?"video/webm;codecs=opus":
-    "video/webm";
+    MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+      ?"video/webm;codecs=vp9,opus":
+    MediaRecorder.isTypeSupported("video/webm")
+      ?"video/webm":"";
+
+  if(!type){
+    alert("Этот браузер не поддерживает запись WebM.");
+    return;
+  }
 
   if(!dest || !dest.stream || dest.stream.getAudioTracks().length===0){
-    alert("Не удалось подготовить аудиодорожку. Перезагрузи страницу и коснись мандалы.");
+    alert("Не удалось подготовить музыкальную дорожку. Обнови страницу и коснись мандалы.");
     return;
   }
 
-  const canvasStream=canvas.captureStream(30);
-  const stream=new MediaStream();
+  const canvasStream=canvas.captureStream(24);
+  const combinedStream=new MediaStream();
 
-  canvasStream.getVideoTracks().forEach(track=>stream.addTrack(track));
-
+  const videoTrack=canvasStream.getVideoTracks()[0];
   const sourceAudioTrack=dest.stream.getAudioTracks()[0];
-  const recordingAudioTrack=sourceAudioTrack ? sourceAudioTrack.clone() : null;
-  if(recordingAudioTrack){
-    stream.addTrack(recordingAudioTrack);
-  }
+  const audioTrack=sourceAudioTrack ? sourceAudioTrack.clone() : null;
 
-  if(stream.getAudioTracks().length===0){
+  if(videoTrack) combinedStream.addTrack(videoTrack);
+  if(audioTrack) combinedStream.addTrack(audioTrack);
+
+  if(combinedStream.getVideoTracks().length===0 || combinedStream.getAudioTracks().length===0){
     canvasStream.getTracks().forEach(track=>track.stop());
-    alert("Аудиодорожка не подключилась к видео.");
+    if(audioTrack) audioTrack.stop();
+    alert("Не удалось соединить изображение и музыку.");
     return;
   }
 
-  activeRecordingStream=stream;
   const chunks=[];
   let recorder;
 
   try{
-    recorder=new MediaRecorder(stream,{
+    recorder=new MediaRecorder(combinedStream,{
       mimeType:type,
-      videoBitsPerSecond:6000000,
-      audioBitsPerSecond:256000
+      videoBitsPerSecond:4500000,
+      audioBitsPerSecond:192000
     });
-    activeRecorder=recorder;
   }catch(error){
-    stream.getTracks().forEach(track=>track.stop());
-    activeRecordingStream=null;
+    combinedStream.getTracks().forEach(track=>track.stop());
     console.error(error);
-    alert("Не удалось запустить запись со звуком.");
+    alert("Не удалось запустить запись.");
     return;
   }
 
-  const oldText=videoButton.textContent;
+  const originalText=videoButton.textContent;
   videoButton.disabled=true;
   imageButton.disabled=true;
-  videoButton.textContent="Запись 120 секунд…";
-  statusNode.textContent=`Записывается видео с музыкой: ${safeDate}`;
+  birthInput.disabled=true;
+
+  let secondsLeft=120;
+  videoButton.textContent=`Запись: ${secondsLeft} сек`;
+  statusNode.textContent="Не закрывай страницу — идёт запись с музыкой";
+
+  const countdown=setInterval(()=>{
+    secondsLeft--;
+    if(secondsLeft>0){
+      videoButton.textContent=`Запись: ${secondsLeft} сек`;
+    }
+  },1000);
 
   recorder.ondataavailable=event=>{
-    if(event.data && event.data.size>0){
-      chunks.push(event.data);
-    }
+    if(event.data && event.data.size>0) chunks.push(event.data);
   };
 
   recorder.onerror=event=>{
@@ -494,25 +514,19 @@ videoButton.addEventListener("click",async()=>{
   };
 
   recorder.onstop=()=>{
+    clearInterval(countdown);
+    combinedStream.getTracks().forEach(track=>track.stop());
     canvasStream.getTracks().forEach(track=>track.stop());
-
-    if(activeRecordingStream===stream) activeRecordingStream=null;
-    if(activeRecorder===recorder) activeRecorder=null;
 
     videoButton.disabled=false;
     imageButton.disabled=false;
-    videoButton.textContent=oldText;
+    birthInput.disabled=false;
+    videoButton.textContent=originalText;
 
-    if(recordingGeneration!==generationId || recordingDate!==birthInput.value){
-      statusNode.textContent="Дата изменилась — старая запись отменена";
-      setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
-      return;
-    }
-
-    const size=chunks.reduce((sum,chunk)=>sum+chunk.size,0);
-    if(size<1000){
-      alert("Браузер не создал видео со звуком.");
-      statusNode.textContent="Живая Мандала Души";
+    const totalSize=chunks.reduce((sum,chunk)=>sum+chunk.size,0);
+    if(totalSize<1000){
+      statusNode.textContent="Запись не создана";
+      alert("Браузер не создал видео. Проверь, что страница открыта через HTTPS в Chrome.");
       return;
     }
 
@@ -528,23 +542,39 @@ videoButton.addEventListener("click",async()=>{
     setTimeout(()=>{
       link.remove();
       URL.revokeObjectURL(url);
-    },4000);
+    },5000);
 
     statusNode.textContent=`Видео с музыкой сохранено: ${safeDate}`;
-    setTimeout(()=>statusNode.textContent="Живая Мандала Души",2200);
+    setTimeout(()=>statusNode.textContent="Коснись мандалы — включится звук",2200);
   };
 
-  recorder.start(250);
+  recorder.start(1000);
 
   setTimeout(()=>{
     if(recorder.state==="recording"){
       recorder.requestData();
-      setTimeout(()=>recorder.stop(),500);
+      setTimeout(()=>recorder.stop(),800);
     }
   },120000);
 });
 
-window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();requestAnimationFrame(render);
+window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();
+
+if(!sessionStorage.getItem("mandala_session_started")){
+  birthInput.value="";
+  profile=null;
+  sessionStorage.setItem("mandala_session_started","1");
+}else{
+  syncProfileFromInput(false);
+}
+
+window.addEventListener("pageshow",event=>{
+  if(event.persisted){
+    syncProfileFromInput(false);
+  }
+});
+
+requestAnimationFrame(render);
 </script>
 </body>
 </html>
