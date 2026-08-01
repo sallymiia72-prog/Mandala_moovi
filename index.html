@@ -25,7 +25,7 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 <div class="app">
 <header class="toolbar">
 <div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date" value="1969-05-22"></div>
-<button id="downloadVideo" type="button">Скачать видео 120 сек</button>
+<button id="downloadVideo" type="button">Скачать видео + музыку</button>
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
 <main class="stage">
@@ -240,6 +240,32 @@ function drawPremiumGold(w,h,time,cx,cy,radius,reveal){
   ctx.restore();
 }
 
+
+function renderExportFrame(time){
+  const w=canvas.clientWidth;
+  const h=canvas.clientHeight;
+
+  drawBackground(w,h,time);
+
+  const cx=w/2;
+  const cy=h*.475;
+  const radius=Math.min(w,h)*.455;
+  const pulse=.5+.5*Math.sin(time*.00225);
+
+  drawPremiumGold(w,h,time,cx,cy,radius,1);
+
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(time*.00185);
+  ctx.scale(.985+.015*pulse,.985+.015*pulse);
+  ctx.globalAlpha=1;
+
+  drawMandala(profile.positions,radius,time,1);
+  drawCore(radius,time);
+
+  ctx.restore();
+}
+
 function render(time){
   const w=canvas.clientWidth;
   const h=canvas.clientHeight;
@@ -269,10 +295,198 @@ function render(time){
   ctx.restore();
   requestAnimationFrame(render);
 }
-birthInput.addEventListener("change",()=>{profile=calculateSoulProfile(birthInput.value);startedAt=performance.now();if(soundOn)startSequence()});
-imageButton.addEventListener("click",async()=>{await ensureAudio();try{const link=document.createElement("a");link.download=`Мандала_Души_${birthInput.value}.png`;link.href=canvas.toDataURL("image/png",1);document.body.appendChild(link);link.click();link.remove();statusNode.textContent="Изображение сохранено";setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800)}catch(e){alert("Не удалось сохранить изображение.")}});
-videoButton.addEventListener("click",async()=>{await ensureAudio();if(!window.MediaRecorder||typeof canvas.captureStream!=="function"){alert("Запись видео не поддерживается этим браузером.");return}const type=MediaRecorder.isTypeSupported("video/mp4;codecs=h264,aac")?"video/mp4;codecs=h264,aac":MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")?"video/webm;codecs=vp9,opus":MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")?"video/webm;codecs=vp8,opus":MediaRecorder.isTypeSupported("video/webm;codecs=vp8")?"video/webm;codecs=vp8":"video/webm",canvasStream=canvas.captureStream(20),stream=new MediaStream();canvasStream.getVideoTracks().forEach(t=>stream.addTrack(t));if(dest)dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));const chunks=[];let recorder;try{recorder=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:4500000,audioBitsPerSecond:192000})}catch(e){stream.getTracks().forEach(t=>t.stop());alert("Не удалось запустить запись.");return}const old=videoButton.textContent;videoButton.disabled=true;imageButton.disabled=true;videoButton.textContent="Запись 120 секунд…";statusNode.textContent="Записывается мандала со звучанием";startedAt=performance.now();startSequence();recorder.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());videoButton.disabled=false;imageButton.disabled=false;videoButton.textContent=old;const size=chunks.reduce((s,c)=>s+c.size,0);if(size<1000){alert("Браузер не создал видео. Открой страницу в Chrome.");return}const blob=new Blob(chunks,{type}),url=URL.createObjectURL(blob),link=document.createElement("a");const extension=type.startsWith("video/mp4")?"mp4":"webm";link.download=`Мандала_Души_${birthInput.value}_120сек.${extension}`;link.href=url;document.body.appendChild(link);link.click();setTimeout(()=>{link.remove();URL.revokeObjectURL(url)},3000);statusNode.textContent=type.startsWith("video/mp4")?"MP4 со звучанием сохранено":"WebM со звучанием сохранено";setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800)};recorder.start(250);setTimeout(()=>{if(recorder.state==="recording"){recorder.requestData();setTimeout(()=>recorder.stop(),300)}},120000)});
-window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();requestAnimationFrame(render);
+
+let generationId=1;
+let activeRecorder=null;
+let activeRecordingStream=null;
+
+function rebuildCurrentDate(){
+  generationId++;
+  profile=calculateSoulProfile(birthInput.value);
+  startedAt=performance.now();
+
+  if(activeRecorder && activeRecorder.state==="recording"){
+    try{activeRecorder.stop()}catch(_){}
+  }
+  if(activeRecordingStream){
+    activeRecordingStream.getTracks().forEach(track=>track.stop());
+    activeRecordingStream=null;
+  }
+
+  if(soundOn) startSequence();
+
+  statusNode.textContent=`Мандала обновлена: ${birthInput.value.split("-").reverse().join(".")}`;
+  setTimeout(()=>statusNode.textContent="Живая Мандала Души",1600);
+}
+
+birthInput.addEventListener("change",rebuildCurrentDate);
+
+imageButton.addEventListener("click",async()=>{
+  try{
+    // Recalculate from the current field value immediately before export.
+    profile=calculateSoulProfile(birthInput.value);
+    const exportTime=performance.now();
+    renderExportFrame(exportTime);
+
+    const safeDate=birthInput.value.split("-").reverse().join("-");
+    const link=document.createElement("a");
+    link.download=`Soul_Mandala_${safeDate}.png`;
+    link.href=canvas.toDataURL("image/png",1);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    statusNode.textContent=`PNG сохранён: ${safeDate}`;
+    setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
+  }catch(error){
+    console.error(error);
+    alert("Не удалось сохранить изображение.");
+  }
+});
+
+videoButton.addEventListener("click",async()=>{
+  const audioReady=await ensureAudio();
+
+  if(!audioReady || !ac || ac.state!=="running"){
+    alert("Сначала коснись мандалы, чтобы включить музыку, затем нажми запись видео.");
+    return;
+  }
+
+  if(!window.MediaRecorder || typeof canvas.captureStream!=="function"){
+    alert("Запись видео не поддерживается этим браузером.");
+    return;
+  }
+
+  profile=calculateSoulProfile(birthInput.value);
+  const recordingDate=birthInput.value;
+  const recordingGeneration=generationId;
+  const safeDate=recordingDate.split("-").reverse().join("-");
+
+  // WebM + Opus надёжно сохраняет WebAudio на Android Chrome.
+  const type=
+    MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+      ?"video/webm;codecs=vp9,opus":
+    MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+      ?"video/webm;codecs=vp8,opus":
+    MediaRecorder.isTypeSupported("video/webm;codecs=opus")
+      ?"video/webm;codecs=opus":
+    "video/webm";
+
+  if(!dest || !dest.stream || dest.stream.getAudioTracks().length===0){
+    alert("Не удалось подготовить аудиодорожку. Перезагрузи страницу и коснись мандалы.");
+    return;
+  }
+
+  const canvasStream=canvas.captureStream(30);
+  const stream=new MediaStream();
+
+  canvasStream.getVideoTracks().forEach(track=>stream.addTrack(track));
+
+  const audioTrack=dest.stream.getAudioTracks()[0];
+  if(audioTrack){
+    stream.addTrack(audioTrack);
+  }
+
+  if(stream.getAudioTracks().length===0){
+    canvasStream.getTracks().forEach(track=>track.stop());
+    alert("Аудиодорожка не подключилась к видео.");
+    return;
+  }
+
+  activeRecordingStream=stream;
+  const chunks=[];
+  let recorder;
+
+  try{
+    recorder=new MediaRecorder(stream,{
+      mimeType:type,
+      videoBitsPerSecond:6000000,
+      audioBitsPerSecond:256000
+    });
+    activeRecorder=recorder;
+  }catch(error){
+    stream.getTracks().forEach(track=>track.stop());
+    activeRecordingStream=null;
+    console.error(error);
+    alert("Не удалось запустить запись со звуком.");
+    return;
+  }
+
+  const oldText=videoButton.textContent;
+  videoButton.disabled=true;
+  imageButton.disabled=true;
+  videoButton.textContent="Запись 120 секунд…";
+  statusNode.textContent=`Записывается видео с музыкой: ${safeDate}`;
+
+  recorder.ondataavailable=event=>{
+    if(event.data && event.data.size>0){
+      chunks.push(event.data);
+    }
+  };
+
+  recorder.onerror=event=>{
+    console.error("MediaRecorder error:",event.error);
+  };
+
+  recorder.onstart=()=>{
+    // Музыка запускается после старта рекордера, чтобы начало не потерялось.
+    startedAt=performance.now();
+    if(timer) clearInterval(timer);
+    startSequence();
+  };
+
+  recorder.onstop=()=>{
+    canvasStream.getTracks().forEach(track=>track.stop());
+
+    if(activeRecordingStream===stream) activeRecordingStream=null;
+    if(activeRecorder===recorder) activeRecorder=null;
+
+    videoButton.disabled=false;
+    imageButton.disabled=false;
+    videoButton.textContent=oldText;
+
+    if(recordingGeneration!==generationId || recordingDate!==birthInput.value){
+      statusNode.textContent="Дата изменилась — старая запись отменена";
+      setTimeout(()=>statusNode.textContent="Живая Мандала Души",1800);
+      return;
+    }
+
+    const size=chunks.reduce((sum,chunk)=>sum+chunk.size,0);
+    if(size<1000){
+      alert("Браузер не создал видео со звуком.");
+      statusNode.textContent="Живая Мандала Души";
+      return;
+    }
+
+    const blob=new Blob(chunks,{type});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+
+    link.download=`Soul_Mandala_${safeDate}_120sec_WITH_MUSIC.webm`;
+    link.href=url;
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(()=>{
+      link.remove();
+      URL.revokeObjectURL(url);
+    },4000);
+
+    statusNode.textContent=`Видео с музыкой сохранено: ${safeDate}`;
+    setTimeout(()=>statusNode.textContent="Живая Мандала Души",2200);
+  };
+
+  recorder.start(250);
+
+  setTimeout(()=>{
+    if(recorder.state==="recording"){
+      recorder.requestData();
+      setTimeout(()=>recorder.stop(),500);
+    }
+  },120000);
+});
+
+window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();rebuildCurrentDate();requestAnimationFrame(render);
 </script>
 </body>
 </html>
