@@ -84,7 +84,7 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="Premium-3.1-True-Gold-Rays";
+const BROWSER_RECORDER_VERSION="Premium-3.2-Gold-Rays-Fixed";
 
 const PLATFORM=(()=>{
   const ua=navigator.userAgent||"";
@@ -376,8 +376,8 @@ function drawFacet(pts,mineral,time,index,intensity){
 
 function drawSolarRays(radius,time){
   const pulse=.5+.5*Math.sin(time*.00105);
-  const rayCount=20;
-  const inner=radius*.88;
+  const rayCount=18;
+  const inner=radius*.90;
   const outer=radius*2.62;
 
   ctx.save();
@@ -386,12 +386,12 @@ function drawSolarRays(radius,time){
   for(let i=0;i<rayCount;i++){
     const a=i*Math.PI*2/rayCount;
     const local=.5+.5*Math.sin(time*.00112+i*.71);
-    const spread=i%2===0?.060:.044;
+    const spread=i%2===0?.068:.050;
 
     const p1=[Math.cos(a-spread)*inner,Math.sin(a-spread)*inner];
     const p2=[Math.cos(a+spread)*inner,Math.sin(a+spread)*inner];
-    const p3=[Math.cos(a+spread*.56)*outer,Math.sin(a+spread*.56)*outer];
-    const p4=[Math.cos(a-spread*.56)*outer,Math.sin(a-spread*.56)*outer];
+    const p3=[Math.cos(a+spread*.52)*outer,Math.sin(a+spread*.52)*outer];
+    const p4=[Math.cos(a-spread*.52)*outer,Math.sin(a-spread*.52)*outer];
 
     const grad=ctx.createLinearGradient(
       Math.cos(a)*inner,
@@ -399,12 +399,11 @@ function drawSolarRays(radius,time){
       Math.cos(a)*outer,
       Math.sin(a)*outer
     );
-
-    grad.addColorStop(0,`rgba(255,214,86,${.90})`);
-    grad.addColorStop(.16,`rgba(244,177,30,${.82+.06*local})`);
-    grad.addColorStop(.42,`rgba(222,139,10,${.62+.08*local})`);
-    grad.addColorStop(.72,`rgba(190,103,0,${.30+.06*local})`);
-    grad.addColorStop(1,"rgba(151,72,0,0)");
+    grad.addColorStop(0,`rgba(255,204,60,${.92})`);
+    grad.addColorStop(.16,`rgba(235,157,18,${.88})`);
+    grad.addColorStop(.44,`rgba(204,112,0,${.68+.06*local})`);
+    grad.addColorStop(.72,`rgba(166,75,0,${.34+.04*local})`);
+    grad.addColorStop(1,"rgba(132,55,0,0)");
 
     ctx.beginPath();
     ctx.moveTo(...p1);
@@ -414,38 +413,10 @@ function drawSolarRays(radius,time){
     ctx.closePath();
 
     ctx.fillStyle=grad;
-    ctx.shadowColor="rgba(214,135,0,.70)";
-    ctx.shadowBlur=14+12*local+6*pulse;
+    ctx.shadowColor="rgba(189,95,0,.66)";
+    ctx.shadowBlur=10+9*local+4*pulse;
     ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(
-      Math.cos(a)*inner,
-      Math.sin(a)*inner
-    );
-    ctx.lineTo(
-      Math.cos(a)*outer,
-      Math.sin(a)*outer
-    );
-    ctx.strokeStyle=`rgba(255,222,119,${.30+.10*local})`;
-    ctx.lineWidth=1.2+1.1*local;
-    ctx.shadowBlur=6;
-    ctx.stroke();
   }
-
-  const halo=ctx.createRadialGradient(
-    0,0,radius*.62,
-    0,0,radius*1.28
-  );
-  halo.addColorStop(0,"rgba(255,214,103,0)");
-  halo.addColorStop(.58,`rgba(232,157,22,${.08+.03*pulse})`);
-  halo.addColorStop(.80,`rgba(204,119,0,${.16+.05*pulse})`);
-  halo.addColorStop(1,"rgba(166,83,0,0)");
-
-  ctx.fillStyle=halo;
-  ctx.beginPath();
-  ctx.arc(0,0,radius*1.28,0,Math.PI*2);
-  ctx.fill();
 
   ctx.restore();
 }
@@ -549,118 +520,52 @@ function drawPremiumGold(w,h,time,cx,cy,radius,reveal){
   const edge=Math.hypot(w/2,h/2)*1.04;
 
   ctx.save();
-  ctx.globalCompositeOperation="screen";
+  ctx.globalCompositeOperation="source-over";
 
   const haloOuter=Math.min(edge,radius*(1.62+.08*pulse));
   const halo=ctx.createRadialGradient(
     cx,cy,radius*.78,
     cx,cy,haloOuter
   );
-  halo.addColorStop(0,"rgba(255,238,166,0)");
-  halo.addColorStop(.30,`rgba(255,223,123,${(.11+.05*pulse)*smooth})`);
-  halo.addColorStop(.62,`rgba(255,184,48,${(.18+.09*pulse)*smooth})`);
-  halo.addColorStop(.86,`rgba(255,150,17,${(.09+.055*pulse)*smooth})`);
-  halo.addColorStop(1,"rgba(255,138,0,0)");
+  halo.addColorStop(0,"rgba(255,224,126,0)");
+  halo.addColorStop(.30,`rgba(232,163,35,${(.07+.03*pulse)*smooth})`);
+  halo.addColorStop(.62,`rgba(210,126,8,${(.12+.05*pulse)*smooth})`);
+  halo.addColorStop(.86,`rgba(181,91,0,${(.05+.03*pulse)*smooth})`);
+  halo.addColorStop(1,"rgba(160,72,0,0)");
   ctx.fillStyle=halo;
   ctx.fillRect(0,0,w,h);
 
   ctx.translate(cx,cy);
-  ctx.lineCap="round";
 
   const ringRadius=radius*(1.025+.012*pulse);
   ctx.beginPath();
   ctx.arc(0,0,ringRadius,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(255,232,154,${(.52+.28*pulse)*smooth})`;
-  ctx.lineWidth=Math.max(2.2,radius*(.010+.006*pulse));
-  ctx.shadowColor="rgba(255,179,30,.96)";
-  ctx.shadowBlur=radius*(.045+.045*pulse);
+  ctx.strokeStyle=`rgba(225,158,35,${(.56+.20*pulse)*smooth})`;
+  ctx.lineWidth=Math.max(2.0,radius*(.009+.004*pulse));
+  ctx.shadowColor="rgba(202,119,0,.72)";
+  ctx.shadowBlur=radius*(.026+.018*pulse);
   ctx.stroke();
 
-  const clockwise=time*.000145;
-  const mainCount=48;
-
-  ctx.save();
-  ctx.rotate(clockwise);
-
-  for(let i=0;i<mainCount;i++){
-    const angle=i*Math.PI*2/mainCount;
-    const localPulse=.5+.5*Math.sin(time*.00205+i*.72);
-    const accent=i%4===0;
-
-    const inner=radius*(.82-.035*localPulse);
-    const outer=edge*(.94+.055*localPulse);
-
-    const x1=Math.cos(angle)*inner;
-    const y1=Math.sin(angle)*inner;
-    const x2=Math.cos(angle)*outer;
-    const y2=Math.sin(angle)*outer;
-
-    const g=ctx.createLinearGradient(x1,y1,x2,y2);
-    g.addColorStop(0,"rgba(255,235,156,0)");
-    g.addColorStop(.10,`rgba(255,244,201,${(.06+.055*localPulse)*smooth})`);
-    g.addColorStop(.40,`rgba(255,211,101,${((accent?.26:.17)+.10*localPulse)*smooth})`);
-    g.addColorStop(.76,`rgba(255,171,34,${((accent?.17:.10)+.075*localPulse)*smooth})`);
-    g.addColorStop(1,"rgba(255,142,0,0)");
-
-    ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
-    ctx.strokeStyle=g;
-    ctx.lineWidth=radius*((accent?.021:.012)+.006*localPulse);
-    ctx.shadowColor="rgba(255,183,41,.94)";
-    ctx.shadowBlur=radius*((accent?.038:.024)+.022*localPulse);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.rotate(clockwise*.74+Math.PI/mainCount);
-
-  for(let i=0;i<mainCount;i++){
-    const angle=i*Math.PI*2/mainCount;
-    const localPulse=.5+.5*Math.sin(time*.00235+i*.91);
-
-    const inner=radius*(.90-.025*localPulse);
-    const outer=edge*(.89+.045*localPulse);
-
-    const x1=Math.cos(angle)*inner;
-    const y1=Math.sin(angle)*inner;
-    const x2=Math.cos(angle)*outer;
-    const y2=Math.sin(angle)*outer;
-
-    const g=ctx.createLinearGradient(x1,y1,x2,y2);
-    g.addColorStop(0,"rgba(255,235,159,0)");
-    g.addColorStop(.24,`rgba(255,238,181,${(.035+.045*localPulse)*smooth})`);
-    g.addColorStop(.70,`rgba(255,187,52,${(.08+.075*localPulse)*smooth})`);
-    g.addColorStop(1,"rgba(255,146,0,0)");
-
-    ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
-    ctx.strokeStyle=g;
-    ctx.lineWidth=radius*(.006+.004*localPulse);
-    ctx.shadowColor="rgba(255,193,67,.70)";
-    ctx.shadowBlur=radius*(.012+.012*localPulse);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  for(let i=0;i<150;i++){
-    const angle=i*2.399963+clockwise*.48;
+  for(let i=0;i<105;i++){
+    const angle=i*2.399963+time*.00007;
     const band=((i*29)%61)/61;
     const drift=.5+.5*Math.sin(time*.0009+i*.77);
     const twinkle=.5+.5*Math.sin(time*.003+i*2.03);
-    const distance=radius*(.98+.62*band+.045*drift);
+    const distance=radius*(1.00+.58*band+.035*drift);
     const x=Math.cos(angle)*distance;
     const y=Math.sin(angle)*distance;
-    const rare=i%19===0;
-    const size=.35+(i%6)*.19+(rare?1.15*twinkle:0);
-    const alpha=(.055+.36*twinkle+(rare?.18*twinkle:0))*smooth;
+    const rare=i%17===0;
+    const size=.32+(i%5)*.16+(rare?.9*twinkle:0);
+    const alpha=(.05+.24*twinkle+(rare?.12*twinkle:0))*smooth;
 
     ctx.beginPath();
-    ctx.fillStyle=`rgba(255,230,157,${alpha})`;
-    ctx.shadowColor="rgba(255,195,67,.92)";
-    ctx.shadowBlur=2+10*twinkle;
+    ctx.fillStyle=rare
+      ?`rgba(222,148,18,${alpha})`
+      :`rgba(255,226,145,${alpha*.72})`;
+    ctx.shadowColor=rare
+      ?"rgba(202,115,0,.72)"
+      :"rgba(228,164,49,.48)";
+    ctx.shadowBlur=2+7*twinkle;
     ctx.arc(x,y,size,0,Math.PI*2);
     ctx.fill();
   }
