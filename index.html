@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Живая Мандала Души — Premium v2.0</title>
+<title>Живая Мандала Души</title>
 <style>
 :root{--bg:#020617;--panel:#04091d;--gold:#e8c66a;--text:#fff9e8}
 *{box-sizing:border-box}
@@ -30,51 +30,34 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 }
 
 .videoDownloadPanel{
-  margin:12px 18px 14px;
-  padding:16px;
+  margin:12px 18px 16px;
+  padding:14px;
   border-radius:18px;
-  border:1px solid rgba(255,220,128,.78);
-  background:linear-gradient(180deg,#6f4800,#2e1c00);
-  box-shadow:0 0 26px rgba(255,186,50,.28);
-  text-align:center;
+  border:1px solid rgba(255,220,128,.72);
+  background:rgba(3,13,39,.96);
+  box-shadow:0 0 24px rgba(255,188,55,.22);
 }
 .videoDownloadPanel[hidden]{display:none!important}
-.downloadTitle{
-  color:#ffe6a0;
-  font-size:19px;
-  font-weight:900;
+.readyVideoPreview{
+  display:block;
+  width:100%;
+  max-height:52vh;
+  border-radius:14px;
+  background:#000;
   margin-bottom:12px;
 }
-.videoDownloadLink{
-  display:block;
-  padding:16px 14px;
-  border-radius:14px;
-  background:linear-gradient(180deg,#f0ad25,#a96500);
-  color:#fff!important;
-  font-size:18px;
+.videoDownloadButton{
+  width:100%;
+  min-height:64px;
+  border-radius:15px;
+  border:1px solid #ffe19b;
+  background:linear-gradient(180deg,#e5a728,#9a6200);
+  color:#fff;
+  font-size:21px;
   font-weight:900;
-  text-decoration:none;
-  border:1px solid #ffe29c;
+  cursor:pointer;
 }
-.downloadHint{
-  margin-top:12px;
-  color:#f3dfb4;
-  font-size:13px;
-  line-height:1.45;
-}
-
-.buildBadge{
-  margin:8px 18px 6px;
-  padding:8px 12px;
-  border-radius:12px;
-  background:rgba(5,18,52,.92);
-  border:1px solid rgba(255,215,120,.55);
-  color:#ffe09a;
-  font-size:12px;
-  font-weight:800;
-  text-align:center;
-  letter-spacing:.04em;
-}
+.videoDownloadButton:disabled{opacity:.6}
 </style>
 </head>
 <body>
@@ -85,23 +68,19 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
 <section id="videoDownloadPanel" class="videoDownloadPanel" hidden>
-  <div class="downloadTitle">Видео готово</div>
-  <a id="videoDownloadLink" class="videoDownloadLink" href="#">
-    Открыть / скачать готовое видео
-  </a>
-  <div class="downloadHint" id="downloadHint">
-    Нажми кнопку ниже, чтобы сохранить видео.
-  </div>
+  <video id="readyVideoPreview" class="readyVideoPreview" controls playsinline preload="metadata"></video>
+  <button id="downloadVideoButton" class="videoDownloadButton" type="button">
+    Скачать видео
+  </button>
 </section>
-<div class="buildBadge">PREMIUM v2.0 · AUTO DEVICE</div>
 <main class="stage">
 <canvas id="mandala" width="1080" height="1350"></canvas>
-<div class="status" id="status">Premium v2.0 · готово к записи</div>
+<div class="status" id="status"></div>
 </main>
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="Premium-2.0-Auto-Platform";
+const BROWSER_RECORDER_VERSION="Premium-2.1-Clean-Download";
 
 const PLATFORM=(()=>{
   const ua=navigator.userAgent||"";
@@ -184,7 +163,7 @@ function calculateSoulProfile(dateString){
   return {birthDate:dateString,positions:P};
 }
 function createSectorMesh(radius){const t=Math.tan(Math.PI/12),r1=radius*.27,r2=radius*.55,r3=radius*.80,r4=radius,w1=r1*t,w2=r2*t,w3=r3*t,w4=r4*t,O=[0,0],A=[-w1,r1],B=[w1,r1],C=[-w2,r2],D=[0,r2],E=[w2,r2],F=[-w3,r3],G=[-w3/3,r3],H=[w3/3,r3],I=[w3,r3],J=[-w4,r4],K=[0,r4],L=[w4,r4];return[{p:1,pts:[O,A,B]},{p:2,pts:[A,B,D]},{p:3,pts:[A,D,C]},{p:5,pts:[B,E,D]},{p:4,pts:[C,D,G]},{p:7,pts:[C,G,F]},{p:9,pts:[D,H,G]},{p:6,pts:[D,E,H]},{p:11,pts:[E,I,H]},{p:8,pts:[F,G,J]},{p:10,pts:[G,H,K]},{p:12,pts:[H,I,L]}]}
-const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),createVideoButton=document.getElementById("createVideo"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status"),videoDownloadPanel=document.getElementById("videoDownloadPanel"),videoDownloadLink=document.getElementById("videoDownloadLink"),downloadHint=document.getElementById("downloadHint");
+const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),createVideoButton=document.getElementById("createVideo"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status"),videoDownloadPanel=document.getElementById("videoDownloadPanel"),readyVideoPreview=document.getElementById("readyVideoPreview"),downloadVideoButton=document.getElementById("downloadVideoButton");
 let profile=calculateSoulProfile(birthInput.value),startedAt=performance.now();
 
 // AUDIO
@@ -745,9 +724,12 @@ function clearReadyVideo(){
   readyVideoName="";
   readyVideoUrl=null;
   readyVideoMode=null;
-  videoDownloadLink.removeAttribute("href");
-  videoDownloadLink.removeAttribute("download");
+  readyVideoPreview.pause();
+  readyVideoPreview.removeAttribute("src");
+  readyVideoPreview.load();
   videoDownloadPanel.hidden=true;
+  downloadVideoButton.disabled=false;
+  downloadVideoButton.textContent="Скачать видео";
 }
 
 
@@ -767,7 +749,6 @@ async function startVideoRecording(){
   if(readyVideoBlob&&readyVideoUrl){
     videoDownloadPanel.hidden=false;
     videoDownloadPanel.scrollIntoView({behavior:"smooth",block:"center"});
-    statusNode.textContent="Сначала скачай уже готовое видео";
     return;
   }
 
@@ -786,7 +767,7 @@ async function startVideoRecording(){
 
   const recordingProfile=getRecordingProfile(mode);
   activeRecordingMode=mode;
-  statusNode.textContent="Подготавливаю запись…";
+  statusNode.textContent="Подготовка…";
 
   const audioReady=await ensureAudio();
   if(!audioReady){
@@ -842,7 +823,7 @@ async function startVideoRecording(){
   };
 
   recorder.onstop=()=>{
-    statusNode.textContent="Запись завершена — готовлю файл…";
+    statusNode.textContent="Подготовка видео…";
 
     const blob=new Blob(chunks,{type:recorder.mimeType||type});
 
@@ -871,18 +852,10 @@ async function startVideoRecording(){
     const safeDate=birthInput.value.split("-").reverse().join("-");
     readyVideoName=`Soul_Mandala_${safeDate}_60sec.${extension}`;
 
-    videoDownloadLink.href=readyVideoUrl;
-    videoDownloadLink.download=readyVideoName;
-    videoDownloadLink.textContent="Скачать видео";
-
-    downloadHint.innerHTML=mode==="iphone"
-      ?"На iPhone открой видео и выбери «Поделиться» → «Сохранить в Файлы»."
-      :"Видео сохранится в папку «Загрузки».";
-
+    readyVideoPreview.src=readyVideoUrl;
+    readyVideoPreview.load();
     videoDownloadPanel.hidden=false;
-
-    const sizeMb=Math.round(blob.size/1024/1024*10)/10;
-    statusNode.textContent=`Видео готово · ${sizeMb} МБ`;
+    statusNode.textContent="Видео готово";
 
     setTimeout(()=>{
       videoDownloadPanel.scrollIntoView({behavior:"smooth",block:"center"});
@@ -910,8 +883,8 @@ async function startVideoRecording(){
   let secondsLeft=60;
   createVideoButton.textContent=`Запись: ${secondsLeft} сек`;
   statusNode.textContent=mode==="iphone"
-    ?"Идёт запись для iPhone — не сворачивай Safari"
-    :"Идёт запись — не сворачивай страницу";
+    ?"Идёт запись…"
+    :"Идёт запись…";
 
   const timer=setInterval(()=>{
     secondsLeft--;
@@ -926,17 +899,59 @@ async function startVideoRecording(){
 
 createVideoButton.addEventListener("click",startVideoRecording);
 
-videoDownloadLink.addEventListener("click",event=>{
-  if(!readyVideoUrl) return;
+async function saveReadyVideo(){
+  if(!readyVideoBlob||!readyVideoName) return;
 
-  if(getAutomaticMode()==="iphone"){
-    event.preventDefault();
-    const opened=window.open(readyVideoUrl,"_blank");
-    if(!opened){
-      window.location.href=readyVideoUrl;
+  downloadVideoButton.disabled=true;
+  downloadVideoButton.textContent="Сохраняю…";
+
+  const file=new File(
+    [readyVideoBlob],
+    readyVideoName,
+    {type:readyVideoBlob.type||"application/octet-stream"}
+  );
+
+  try{
+    if(navigator.share){
+      const shareData={files:[file],title:"Мандала Души"};
+      if(!navigator.canShare||navigator.canShare(shareData)){
+        await navigator.share(shareData);
+        downloadVideoButton.textContent="Скачать видео";
+        downloadVideoButton.disabled=false;
+        return;
+      }
     }
+  }catch(error){
+    if(error?.name==="AbortError"){
+      downloadVideoButton.textContent="Скачать видео";
+      downloadVideoButton.disabled=false;
+      return;
+    }
+    console.warn("System save failed:",error);
   }
-});
+
+  try{
+    const link=document.createElement("a");
+    link.href=readyVideoUrl;
+    link.download=readyVideoName;
+    link.rel="noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(()=>{
+      downloadVideoButton.textContent="Скачать видео";
+      downloadVideoButton.disabled=false;
+    },1200);
+  }catch(error){
+    console.error("Download failed:",error);
+    downloadVideoButton.textContent="Скачать видео";
+    downloadVideoButton.disabled=false;
+    readyVideoPreview.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+}
+
+downloadVideoButton.addEventListener("click",saveReadyVideo);
 
 
 window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();
