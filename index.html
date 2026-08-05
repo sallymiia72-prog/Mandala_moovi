@@ -84,7 +84,7 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="Premium-2.2-Golden-Rays";
+const BROWSER_RECORDER_VERSION="Premium-2.3-Solar-Gold";
 
 const PLATFORM=(()=>{
   const ua=navigator.userAgent||"";
@@ -251,16 +251,16 @@ function drawBackground(w,h,time){
 
   const bg=ctx.createRadialGradient(
     cx,cy,0,
-    cx,cy,Math.max(w,h)*.82
+    cx,cy,Math.max(w,h)*.88
   );
   bg.addColorStop(
     0,
-    `rgb(${34+Math.round(10*breath)},${88+Math.round(14*breath)},${184+Math.round(18*breath)})`
+    `rgb(${48+Math.round(10*breath)},${108+Math.round(15*breath)},${202+Math.round(18*breath)})`
   );
-  bg.addColorStop(.28,"#174b9d");
-  bg.addColorStop(.58,"#102c70");
-  bg.addColorStop(.82,"#091844");
-  bg.addColorStop(1,"#04091f");
+  bg.addColorStop(.26,"#2360b6");
+  bg.addColorStop(.56,"#173b86");
+  bg.addColorStop(.82,"#0d2257");
+  bg.addColorStop(1,"#07102f");
   ctx.fillStyle=bg;
   ctx.fillRect(0,0,w,h);
 
@@ -268,75 +268,29 @@ function drawBackground(w,h,time){
   ctx.globalCompositeOperation="screen";
 
   const violet=ctx.createRadialGradient(
-    cx*.76,cy*.76,0,
-    cx*.76,cy*.76,Math.max(w,h)*.70
+    cx*.78,cy*.76,0,
+    cx*.78,cy*.76,Math.max(w,h)*.72
   );
-  violet.addColorStop(0,`rgba(118,75,226,${.18+.05*breath})`);
-  violet.addColorStop(.42,`rgba(58,100,230,${.09+.03*breath})`);
+  violet.addColorStop(0,`rgba(126,84,235,${.16+.05*breath})`);
+  violet.addColorStop(.40,`rgba(66,118,235,${.09+.03*breath})`);
   violet.addColorStop(1,"rgba(0,0,0,0)");
   ctx.fillStyle=violet;
   ctx.fillRect(0,0,w,h);
 
-  const rayCount=26;
-  const baseLength=Math.max(w,h)*1.08;
-  const innerRadius=Math.min(w,h)*.10;
-
-  for(let i=0;i<rayCount;i++){
-    const a=i*Math.PI*2/rayCount;
-    const pulse=.5+.5*Math.sin(time*.00105+i*.73);
-    const spread=(i%2===0?.052:.036);
-    const length=baseLength*(.94+.08*pulse);
-    const x0=cx+Math.cos(a)*innerRadius;
-    const y0=cy+Math.sin(a)*innerRadius;
-    const left=a-spread;
-    const right=a+spread;
-
-    ctx.beginPath();
-    ctx.moveTo(x0,y0);
-    ctx.lineTo(
-      cx+Math.cos(left)*length,
-      cy+Math.sin(left)*length
-    );
-    ctx.lineTo(
-      cx+Math.cos(right)*length,
-      cy+Math.sin(right)*length
-    );
-    ctx.closePath();
-
-    const gold=ctx.createLinearGradient(
-      x0,y0,
-      cx+Math.cos(a)*length,
-      cy+Math.sin(a)*length
-    );
-    gold.addColorStop(0,`rgba(255,247,199,${.50+.16*pulse})`);
-    gold.addColorStop(.16,`rgba(255,215,104,${.40+.18*pulse})`);
-    gold.addColorStop(.52,`rgba(255,178,42,${.18+.10*pulse})`);
-    gold.addColorStop(1,"rgba(255,147,12,0)");
-
-    ctx.fillStyle=gold;
-    ctx.shadowColor="rgba(255,199,78,.75)";
-    ctx.shadowBlur=18+20*pulse;
-    ctx.fill();
-  }
-
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalCompositeOperation="screen";
-  for(let i=0;i<145;i++){
+  for(let i=0;i<130;i++){
     const a=i*2.399963;
     const d=((i*61)%100)/100*Math.max(w,h)*.66;
-    const drift=Math.sin(time*.00018+i*.91)*2.2;
+    const drift=Math.sin(time*.00018+i*.91)*2.0;
     const x=cx+Math.cos(a)*(d+drift);
     const y=cy+Math.sin(a)*(d+drift);
-    const tw=.12+.70*(.5+.5*Math.sin(time*.00145+i*1.37));
-    const rare=i%19===0;
-    const r=.35+(i%4)*.24+(rare?1.05*tw:0);
+    const tw=.14+.66*(.5+.5*Math.sin(time*.00145+i*1.37));
+    const rare=i%17===0;
+    const r=.35+(i%4)*.23+(rare?1.05*tw:0);
 
     ctx.beginPath();
-    ctx.fillStyle=`rgba(236,246,255,${tw})`;
-    ctx.shadowColor=rare?"rgba(255,225,153,.95)":"transparent";
-    ctx.shadowBlur=rare?9+9*tw:0;
+    ctx.fillStyle=`rgba(239,248,255,${tw})`;
+    ctx.shadowColor=rare?"rgba(255,221,139,.95)":"transparent";
+    ctx.shadowBlur=rare?10+9*tw:0;
     ctx.arc(x,y,r,0,Math.PI*2);
     ctx.fill();
   }
@@ -413,6 +367,63 @@ function drawFacet(pts,mineral,time,index,intensity){
   ctx.stroke();
   ctx.restore();
 }
+
+function drawSolarRays(radius,time){
+  const pulse=.5+.5*Math.sin(time*.00105);
+  const rayCount=24;
+  const inner=radius*.88;
+  const outer=radius*2.55;
+
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+
+  for(let i=0;i<rayCount;i++){
+    const a=i*Math.PI*2/rayCount;
+    const local=.5+.5*Math.sin(time*.00115+i*.72);
+    const spread=i%2===0?.045:.032;
+
+    const p1=[Math.cos(a-spread)*inner,Math.sin(a-spread)*inner];
+    const p2=[Math.cos(a+spread)*inner,Math.sin(a+spread)*inner];
+    const p3=[Math.cos(a+spread*.62)*outer,Math.sin(a+spread*.62)*outer];
+    const p4=[Math.cos(a-spread*.62)*outer,Math.sin(a-spread*.62)*outer];
+
+    const grad=ctx.createLinearGradient(
+      Math.cos(a)*inner,Math.sin(a)*inner,
+      Math.cos(a)*outer,Math.sin(a)*outer
+    );
+    grad.addColorStop(0,`rgba(255,250,218,${.88+.08*local})`);
+    grad.addColorStop(.12,`rgba(255,228,142,${.76+.12*local})`);
+    grad.addColorStop(.42,`rgba(255,190,62,${.46+.14*local})`);
+    grad.addColorStop(.76,`rgba(255,153,22,${.18+.08*local})`);
+    grad.addColorStop(1,"rgba(255,136,0,0)");
+
+    ctx.beginPath();
+    ctx.moveTo(...p1);
+    ctx.lineTo(...p2);
+    ctx.lineTo(...p3);
+    ctx.lineTo(...p4);
+    ctx.closePath();
+
+    ctx.fillStyle=grad;
+    ctx.shadowColor="rgba(255,189,65,.95)";
+    ctx.shadowBlur=22+22*local+10*pulse;
+    ctx.fill();
+  }
+
+  const halo=ctx.createRadialGradient(0,0,radius*.58,0,0,radius*1.22);
+  halo.addColorStop(0,"rgba(255,239,168,0)");
+  halo.addColorStop(.66,`rgba(255,214,106,${.10+.05*pulse})`);
+  halo.addColorStop(.86,`rgba(255,185,56,${.18+.08*pulse})`);
+  halo.addColorStop(1,"rgba(255,154,18,0)");
+  ctx.fillStyle=halo;
+  ctx.beginPath();
+  ctx.arc(0,0,radius*1.22,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+
 function drawMandala(positions,radius,time,intensity){
   const mesh=createSectorMesh(radius);
 
@@ -492,8 +503,8 @@ function drawCore(radius,time){
   const gem=ctx.createRadialGradient(-r*.28,-r*.32,0,0,0,r*2.1);
   gem.addColorStop(0,"#ffffff");
   gem.addColorStop(.24,"#fff7c7");
-  gem.addColorStop(.58,"#ffd35c");
-  gem.addColorStop(1,"rgba(255,142,0,.12)");
+  gem.addColorStop(.58,"#ffcb3f");
+  gem.addColorStop(1,"rgba(255,128,0,.18)");
   ctx.fillStyle=gem;
   ctx.shadowColor="rgba(255,216,99,1)";
   ctx.shadowBlur=20+18*pulse;
@@ -692,6 +703,7 @@ function render(time){
 
   ctx.save();
   ctx.translate(cx,cy);
+  drawSolarRays(radius,time);
   ctx.rotate(clockwiseRotation);
   ctx.scale((.989+.011*pulse)*eased,(.989+.011*pulse)*eased);
   ctx.globalAlpha=eased;
