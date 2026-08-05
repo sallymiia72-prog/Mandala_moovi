@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Живая Мандала Души — запись без сервера</title>
+<title>Живая Мандала Души — Golden v1.2 Universal</title>
 <style>
 :root{--bg:#020617;--panel:#04091d;--gold:#e8c66a;--text:#fff9e8}
 *{box-sizing:border-box}
@@ -25,17 +25,107 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 <div class="app">
 <header class="toolbar">
 <div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date" name="mandala_birth_input" autocomplete="off" data-lpignore="true"></div>
-<button id="downloadVideo" type="button">Записать видео · 60 сек</button>
+<button id="downloadVideo" type="button">Создать видео · 60 сек</button>
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
 <main class="stage">
 <canvas id="mandala" width="1080" height="1350"></canvas>
-<div class="status" id="status">Без сервера · Введите дату рождения</div>
+<div class="status" id="status">Golden v1.2 · Android + iPhone</div>
 </main>
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="4.0-browser-only-60s";
+const BROWSER_RECORDER_VERSION="Golden-1.2-Universal-60s";
+
+const PLATFORM=(()=>{
+  const ua=navigator.userAgent||"";
+  const platform=navigator.platform||"";
+  const maxTouchPoints=navigator.maxTouchPoints||0;
+  const isIOS=/iPhone|iPad|iPod/i.test(ua)||
+    (platform==="MacIntel"&&maxTouchPoints>1);
+  const isAndroid=/Android/i.test(ua);
+  const isSafari=isIOS||(
+    /Safari/i.test(ua)&&
+    !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua)
+  );
+  return {isIOS,isAndroid,isSafari};
+})();
+
+function getRecordingProfile(){
+  const memory=Number(navigator.deviceMemory||4);
+
+  if(PLATFORM.isIOS){
+    return {
+      fps:20,
+      videoBitrate:memory>=6?2800000:2200000,
+      audioBitrate:112000
+    };
+  }
+
+  if(PLATFORM.isAndroid){
+    return {
+      fps:memory>=6?24:memory>=4?22:18,
+      videoBitrate:memory>=6?3200000:memory>=4?2500000:1700000,
+      audioBitrate:112000
+    };
+  }
+
+  return {
+    fps:24,
+    videoBitrate:3200000,
+    audioBitrate:128000
+  };
+}
+
+function getSupportedRecordingFormat(){
+  const iosCandidates=[
+    {type:'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',ext:"mp4"},
+    {type:"video/mp4;codecs=h264,aac",ext:"mp4"},
+    {type:"video/mp4",ext:"mp4"},
+    {type:"video/webm;codecs=vp8,opus",ext:"webm"},
+    {type:"video/webm",ext:"webm"}
+  ];
+
+  const androidCandidates=[
+    {type:"video/webm;codecs=vp8,opus",ext:"webm"},
+    {type:"video/webm;codecs=vp9,opus",ext:"webm"},
+    {type:"video/webm",ext:"webm"},
+    {type:"video/mp4;codecs=h264,aac",ext:"mp4"},
+    {type:"video/mp4",ext:"mp4"}
+  ];
+
+  const candidates=PLATFORM.isIOS?iosCandidates:androidCandidates;
+  return candidates.find(item=>MediaRecorder.isTypeSupported(item.type))||null;
+}
+
+async function saveRecordedVideo(blob,fileName){
+  const file=new File([blob],fileName,{type:blob.type||"application/octet-stream"});
+
+  if(PLATFORM.isIOS&&navigator.share){
+    try{
+      const shareData={files:[file],title:"Живая Мандала Души"};
+      if(!navigator.canShare||navigator.canShare(shareData)){
+        await navigator.share(shareData);
+        return "shared";
+      }
+    }catch(error){
+      if(error?.name==="AbortError") return "cancelled";
+      console.warn("iOS share fallback:",error);
+    }
+  }
+
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download=fileName;
+  link.style.display="none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  return "downloaded";
+}
+
 const PALETTE=Object.freeze({
 1:{base:"#ff163f",light:"#ff9aae",dark:"#740018",glow:"#ff3159"},2:{base:"#ff7200",light:"#ffbd70",dark:"#842800",glow:"#ff8b20"},3:{base:"#ffd600",light:"#fff292",dark:"#8b6400",glow:"#ffe64d"},4:{base:"#79e600",light:"#c4ff7d",dark:"#337600",glow:"#9dff34"},5:{base:"#008b45",light:"#5de69a",dark:"#003c20",glow:"#12d06b"},6:{base:"#00d5ca",light:"#86fff6",dark:"#00615c",glow:"#2af4e8"},7:{base:"#25b8ff",light:"#a5e5ff",dark:"#07578e",glow:"#53c9ff"},8:{base:"#1759ff",light:"#98b5ff",dark:"#071e7a",glow:"#4679ff"},9:{base:"#7d28ff",light:"#c9a1ff",dark:"#35106c",glow:"#9d55ff"},10:{base:"#b35aff",light:"#e0b6ff",dark:"#581b80",glow:"#c77cff"},11:{base:"#ff4c9b",light:"#ffafd2",dark:"#7a1647",glow:"#ff69af"},12:{base:"#ef00cf",light:"#ff93ec",dark:"#70005e",glow:"#ff35df"}});
 const SOUND_MAP=Object.freeze({1:{f:261.63},2:{f:293.66},3:{f:329.63},4:{f:349.23},5:{f:392},6:{f:440},7:{f:493.88},8:{f:523.25},9:{f:587.33},10:{f:659.25},11:{f:698.46},12:{f:783.99}});
@@ -138,15 +228,211 @@ function hexToRgb(hex){const n=parseInt(hex.slice(1),16);return{r:(n>>16)&255,g:
 function rgba(hex,a){const{r,g,b}=hexToRgb(hex);return`rgba(${r},${g},${b},${a})`}
 function pathTriangle(pts){ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.lineTo(pts[2][0],pts[2][1]);ctx.closePath()}
 function resizeCanvas(){const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,1.5);canvas.width=Math.max(540,Math.round(rect.width*dpr));canvas.height=Math.max(675,Math.round(rect.height*dpr));ctx.setTransform(dpr,0,0,dpr,0,0)}
-function drawBackground(w,h,time){const cx=w/2,cy=h*.52,bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.72);bg.addColorStop(0,"#15449d");bg.addColorStop(.28,"#0b2d78");bg.addColorStop(.68,"#06163f");bg.addColorStop(1,"#020617");ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);for(let i=0;i<180;i++){const a=i*2.399963,d=((i*61)%100)/100*Math.max(w,h)*.62,x=cx+Math.cos(a)*d,y=cy+Math.sin(a)*d,tw=.18+.68*(.5+.5*Math.sin(time*.0018+i*1.37));ctx.beginPath();ctx.fillStyle=`rgba(225,241,255,${tw})`;ctx.arc(x,y,.35+(i%5)*.28,0,Math.PI*2);ctx.fill()}}
-function drawFacet(pts,mineral,time,index,intensity){const cx=(pts[0][0]+pts[1][0]+pts[2][0])/3,cy=(pts[0][1]+pts[1][1]+pts[2][1])/3,maxR=Math.max(...pts.map(([x,y])=>Math.hypot(x-cx,y-cy)))+12,shimmer=.5+.5*Math.sin(time*.002+index*1.4);ctx.save();pathTriangle(pts);ctx.shadowColor=mineral.glow;ctx.shadowBlur=8+18*intensity;const fill=ctx.createRadialGradient(cx-maxR*.38,cy-maxR*.52,1,cx,cy,maxR);fill.addColorStop(0,`rgba(255,255,255,${.48+.18*shimmer})`);fill.addColorStop(.1,mineral.light);fill.addColorStop(.38,mineral.base);fill.addColorStop(.8,mineral.dark);fill.addColorStop(1,mineral.dark);ctx.fillStyle=fill;ctx.fill();ctx.clip();const glass=ctx.createLinearGradient(pts[0][0],pts[0][1],pts[2][0],pts[2][1]);glass.addColorStop(0,"rgba(255,255,255,.24)");glass.addColorStop(.28,"rgba(255,255,255,.04)");glass.addColorStop(.65,"rgba(0,0,0,.16)");glass.addColorStop(1,rgba(mineral.light,.16));ctx.fillStyle=glass;ctx.fillRect(cx-maxR,cy-maxR,maxR*2,maxR*2);ctx.restore();ctx.save();pathTriangle(pts);ctx.lineWidth=1.05+intensity*.8;ctx.strokeStyle=rgba(mineral.light,.88);ctx.shadowColor=mineral.glow;ctx.shadowBlur=7+12*intensity;ctx.stroke();ctx.restore()}
-function drawMandala(positions,radius,time,intensity){const mesh=createSectorMesh(radius);for(let sector=0;sector<12;sector++){ctx.save();ctx.rotate(sector*Math.PI/6);for(let i=0;i<mesh.length;i++){const facet=mesh[i];drawFacet(facet.pts,PALETTE[positions[facet.p]],time,i+sector*12,intensity)}ctx.restore()}}
-function drawCore(radius,time){const pulse=.5+.5*Math.sin(time*.006),r=radius*(.035+.014*pulse);ctx.save();ctx.globalCompositeOperation="screen";const halo=ctx.createRadialGradient(0,0,0,0,0,r*8);halo.addColorStop(0,"rgba(255,255,255,1)");halo.addColorStop(.12,"rgba(255,248,190,.95)");halo.addColorStop(.34,"rgba(255,206,70,.55)");halo.addColorStop(1,"rgba(255,142,0,0)");ctx.fillStyle=halo;ctx.beginPath();ctx.arc(0,0,r*8,0,Math.PI*2);ctx.fill();ctx.restore()}
+function drawBackground(w,h,time){
+  const cx=w/2,cy=h*.50;
+  const breath=.5+.5*Math.sin(time*.00072);
+
+  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.78);
+  bg.addColorStop(0,`rgb(${22+Math.round(8*breath)},${68+Math.round(10*breath)},${156+Math.round(15*breath)})`);
+  bg.addColorStop(.30,"#0c327e");
+  bg.addColorStop(.68,"#061842");
+  bg.addColorStop(1,"#020617");
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,w,h);
+
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+  const nebula=ctx.createRadialGradient(cx*.82,cy*.82,0,cx*.82,cy*.82,Math.max(w,h)*.62);
+  nebula.addColorStop(0,`rgba(91,54,210,${.12+.045*breath})`);
+  nebula.addColorStop(.38,`rgba(34,105,230,${.07+.03*breath})`);
+  nebula.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=nebula;
+  ctx.fillRect(0,0,w,h);
+
+  for(let i=0;i<210;i++){
+    const a=i*2.399963;
+    const d=((i*61)%100)/100*Math.max(w,h)*.66;
+    const drift=Math.sin(time*.00018+i*.91)*2.2;
+    const x=cx+Math.cos(a)*(d+drift);
+    const y=cy+Math.sin(a)*(d+drift);
+    const tw=.10+.76*(.5+.5*Math.sin(time*.00145+i*1.37));
+    const rare=i%23===0;
+    const r=.28+(i%5)*.24+(rare?1.1*tw:0);
+    ctx.beginPath();
+    ctx.fillStyle=`rgba(225,241,255,${tw})`;
+    ctx.shadowColor=rare?"rgba(189,220,255,.9)":"transparent";
+    ctx.shadowBlur=rare?8+8*tw:0;
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+function drawFacet(pts,mineral,time,index,intensity){
+  const cx=(pts[0][0]+pts[1][0]+pts[2][0])/3;
+  const cy=(pts[0][1]+pts[1][1]+pts[2][1])/3;
+  const maxR=Math.max(...pts.map(([x,y])=>Math.hypot(x-cx,y-cy)))+14;
+  const shimmer=.5+.5*Math.sin(time*.00155+index*1.17);
+  const sweep=.5+.5*Math.sin(time*.00085+index*.43);
+
+  ctx.save();
+  pathTriangle(pts);
+  ctx.shadowColor=mineral.glow;
+  ctx.shadowBlur=12+22*intensity;
+
+  const fill=ctx.createRadialGradient(
+    cx-maxR*(.42-.10*sweep),
+    cy-maxR*(.56-.07*shimmer),
+    1,
+    cx,
+    cy,
+    maxR*1.06
+  );
+  fill.addColorStop(0,`rgba(255,255,255,${.70+.18*shimmer})`);
+  fill.addColorStop(.09,mineral.light);
+  fill.addColorStop(.32,mineral.base);
+  fill.addColorStop(.72,mineral.dark);
+  fill.addColorStop(1,"rgba(0,0,0,.82)");
+  ctx.fillStyle=fill;
+  ctx.fill();
+
+  ctx.clip();
+
+  const depth=ctx.createLinearGradient(
+    pts[0][0],pts[0][1],
+    (pts[1][0]+pts[2][0])/2,(pts[1][1]+pts[2][1])/2
+  );
+  depth.addColorStop(0,`rgba(255,255,255,${.30+.14*shimmer})`);
+  depth.addColorStop(.26,"rgba(255,255,255,.06)");
+  depth.addColorStop(.62,"rgba(0,0,0,.10)");
+  depth.addColorStop(1,"rgba(0,0,0,.36)");
+  ctx.fillStyle=depth;
+  ctx.fillRect(cx-maxR,cy-maxR,maxR*2,maxR*2);
+
+  const spec=ctx.createLinearGradient(
+    cx-maxR,cy-maxR*.65,
+    cx+maxR,cy+maxR*.45
+  );
+  const highlightPos=.16+.55*sweep;
+  spec.addColorStop(0,"rgba(255,255,255,0)");
+  spec.addColorStop(Math.max(.02,highlightPos-.08),"rgba(255,255,255,0)");
+  spec.addColorStop(highlightPos,`rgba(255,255,255,${.08+.16*shimmer})`);
+  spec.addColorStop(Math.min(.98,highlightPos+.08),"rgba(255,255,255,0)");
+  spec.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle=spec;
+  ctx.fillRect(cx-maxR,cy-maxR,maxR*2,maxR*2);
+  ctx.restore();
+
+  ctx.save();
+  pathTriangle(pts);
+  ctx.lineJoin="round";
+  ctx.lineWidth=1.15+intensity*.9;
+  ctx.strokeStyle=rgba(mineral.light,.94);
+  ctx.shadowColor=mineral.glow;
+  ctx.shadowBlur=9+14*intensity;
+  ctx.stroke();
+
+  pathTriangle(pts);
+  ctx.lineWidth=.42;
+  ctx.strokeStyle="rgba(255,255,255,.55)";
+  ctx.shadowBlur=0;
+  ctx.stroke();
+  ctx.restore();
+}
+function drawMandala(positions,radius,time,intensity){
+  const mesh=createSectorMesh(radius);
+
+  ctx.save();
+  ctx.globalAlpha=.25;
+  ctx.shadowColor="rgba(0,0,0,.8)";
+  ctx.shadowBlur=radius*.09;
+  ctx.scale(1.018,1.018);
+  for(let sector=0;sector<12;sector++){
+    ctx.save();
+    ctx.rotate(sector*Math.PI/6);
+    for(let i=0;i<mesh.length;i++){
+      const facet=mesh[i];
+      const mineral=PALETTE[positions[facet.p]];
+      ctx.save();
+      pathTriangle(facet.pts);
+      ctx.fillStyle=rgba(mineral.dark,.56);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+
+  for(let sector=0;sector<12;sector++){
+    ctx.save();
+    ctx.rotate(sector*Math.PI/6);
+    for(let i=0;i<mesh.length;i++){
+      const facet=mesh[i];
+      drawFacet(
+        facet.pts,
+        PALETTE[positions[facet.p]],
+        time,
+        i+sector*12,
+        intensity
+      );
+    }
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+  ctx.globalAlpha=.12+.08*(.5+.5*Math.sin(time*.0011));
+  ctx.scale(.992,.992);
+  for(let sector=0;sector<12;sector++){
+    ctx.save();
+    ctx.rotate(sector*Math.PI/6);
+    for(let i=0;i<mesh.length;i++){
+      const facet=mesh[i];
+      pathTriangle(facet.pts);
+      ctx.fillStyle=rgba(PALETTE[positions[facet.p]].light,.16);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function drawCore(radius,time){
+  const pulse=.5+.5*Math.sin(time*.0042);
+  const slow=.5+.5*Math.sin(time*.00105);
+  const r=radius*(.033+.012*pulse);
+
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+
+  const outer=ctx.createRadialGradient(0,0,0,0,0,r*(10.5+1.5*slow));
+  outer.addColorStop(0,"rgba(255,255,255,1)");
+  outer.addColorStop(.08,"rgba(255,252,218,.98)");
+  outer.addColorStop(.24,`rgba(255,226,111,${.68+.18*pulse})`);
+  outer.addColorStop(.48,`rgba(255,177,38,${.28+.12*pulse})`);
+  outer.addColorStop(1,"rgba(255,128,0,0)");
+  ctx.fillStyle=outer;
+  ctx.beginPath();
+  ctx.arc(0,0,r*(10.5+1.5*slow),0,Math.PI*2);
+  ctx.fill();
+
+  const gem=ctx.createRadialGradient(-r*.28,-r*.32,0,0,0,r*2.1);
+  gem.addColorStop(0,"#ffffff");
+  gem.addColorStop(.24,"#fff7c7");
+  gem.addColorStop(.58,"#ffd35c");
+  gem.addColorStop(1,"rgba(255,142,0,.12)");
+  ctx.fillStyle=gem;
+  ctx.shadowColor="rgba(255,216,99,1)";
+  ctx.shadowBlur=20+18*pulse;
+  ctx.beginPath();
+  ctx.arc(0,0,r*1.55,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
 
 function drawPremiumGold(w,h,time,cx,cy,radius,reveal){
   const show=Math.max(0,Math.min(1,reveal));
   const smooth=show*show*(3-2*show);
-  const pulse=.5+.5*Math.sin(time*.00225);
+  const pulse=.5+.5*Math.sin(time*.00165);
   const edge=Math.hypot(w/2,h/2)*1.04;
 
   ctx.save();
@@ -171,10 +457,10 @@ function drawPremiumGold(w,h,time,cx,cy,radius,reveal){
   const ringRadius=radius*(1.025+.012*pulse);
   ctx.beginPath();
   ctx.arc(0,0,ringRadius,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(255,224,132,${(.42+.24*pulse)*smooth})`;
+  ctx.strokeStyle=`rgba(255,232,154,${(.52+.28*pulse)*smooth})`;
   ctx.lineWidth=Math.max(2.2,radius*(.010+.006*pulse));
   ctx.shadowColor="rgba(255,179,30,.96)";
-  ctx.shadowBlur=radius*(.035+.035*pulse);
+  ctx.shadowBlur=radius*(.045+.045*pulse);
   ctx.stroke();
 
   const clockwise=time*.000145;
@@ -285,8 +571,8 @@ function renderExportFrame(time){
 
   ctx.save();
   ctx.translate(cx,cy);
-  ctx.rotate(time*.00185);
-  ctx.scale(.985+.015*pulse,.985+.015*pulse);
+  ctx.rotate((time-startedAt)*.00138);
+  ctx.scale(.989+.011*pulse,.989+.011*pulse);
   ctx.globalAlpha=1;
 
   drawMandala(profile.positions,radius,time,1);
@@ -327,12 +613,12 @@ function render(time){
 
   drawPremiumGold(w,h,time,cx,cy,radius,reveal);
 
-  const clockwiseRotation=time*.00185;
+  const clockwiseRotation=(time-startedAt)*.00138;
 
   ctx.save();
   ctx.translate(cx,cy);
   ctx.rotate(clockwiseRotation);
-  ctx.scale((.985+.015*pulse)*eased,(.985+.015*pulse)*eased);
+  ctx.scale((.989+.011*pulse)*eased,(.989+.011*pulse)*eased);
   ctx.globalAlpha=eased;
 
   drawMandala(profile.positions,radius,time,1);
@@ -411,43 +697,48 @@ imageButton.addEventListener("click",async()=>{
 });
 
 
-let readyVideoUrl=null;
+let readyVideoBlob=null;
 let readyVideoName="";
 let recordingInProgress=false;
 
 function clearReadyVideo(){
-  if(readyVideoUrl){
-    URL.revokeObjectURL(readyVideoUrl);
-    readyVideoUrl=null;
-    readyVideoName="";
-  }
+  readyVideoBlob=null;
+  readyVideoName="";
 }
 
-function downloadReadyVideo(){
-  if(!readyVideoUrl) return false;
+async function downloadReadyVideo(){
+  if(!readyVideoBlob) return false;
 
-  const link=document.createElement("a");
-  link.href=readyVideoUrl;
-  link.download=readyVideoName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  videoButton.disabled=true;
+  videoButton.textContent=PLATFORM.isIOS?"Открываю меню сохранения…":"Сохраняю видео…";
 
-  statusNode.textContent="Готовое видео отправлено на скачивание";
-  videoButton.textContent="Записать видео · 60 сек";
+  const result=await saveRecordedVideo(readyVideoBlob,readyVideoName);
+
+  videoButton.disabled=false;
+  videoButton.textContent="Создать видео · 60 сек";
+
+  if(result==="shared"){
+    statusNode.textContent="Выбери «Сохранить в Файлы» или отправь видео";
+  }else if(result==="cancelled"){
+    statusNode.textContent="Сохранение отменено — видео ещё готово";
+    videoButton.textContent="Скачать готовое видео";
+    return true;
+  }else{
+    statusNode.textContent="Видео отправлено на скачивание";
+  }
 
   setTimeout(()=>{
     clearReadyVideo();
     statusNode.textContent="Коснись мандалы — включится звук";
-  },5000);
+  },8000);
 
   return true;
 }
 
 videoButton.addEventListener("click",async()=>{
   // Второе нажатие после записи — настоящее пользовательское скачивание.
-  if(readyVideoUrl){
-    downloadReadyVideo();
+  if(readyVideoBlob){
+    await downloadReadyVideo();
     return;
   }
 
@@ -479,14 +770,7 @@ videoButton.addEventListener("click",async()=>{
   const recordingDate=birthInput.value;
   const safeDate=recordingDate.split("-").reverse().join("-");
 
-  const candidates=[
-    {type:"video/mp4;codecs=h264,aac",ext:"mp4"},
-    {type:"video/mp4",ext:"mp4"},
-    {type:"video/webm;codecs=vp8,opus",ext:"webm"},
-    {type:"video/webm;codecs=vp9,opus",ext:"webm"},
-    {type:"video/webm",ext:"webm"}
-  ];
-  const format=candidates.find(item=>MediaRecorder.isTypeSupported(item.type));
+  const format=getSupportedRecordingFormat();
   const type=format?.type||"";
   const extension=format?.ext||"";
 
@@ -500,7 +784,8 @@ videoButton.addEventListener("click",async()=>{
     return;
   }
 
-  const canvasStream=canvas.captureStream(20);
+  const recordingProfile=getRecordingProfile();
+  const canvasStream=canvas.captureStream(recordingProfile.fps);
   const combinedStream=new MediaStream();
 
   const videoTrack=canvasStream.getVideoTracks()[0];
@@ -523,13 +808,20 @@ videoButton.addEventListener("click",async()=>{
   try{
     recorder=new MediaRecorder(combinedStream,{
       mimeType:type,
-      videoBitsPerSecond:1800000,
-      audioBitsPerSecond:96000
+      videoBitsPerSecond:recordingProfile.videoBitrate,
+      audioBitsPerSecond:recordingProfile.audioBitrate
     });
   }catch(error){
     combinedStream.getTracks().forEach(track=>track.stop());
     console.error(error);
     alert("Не удалось запустить запись.");
+    return;
+  }
+
+  if(document.visibilityState!=="visible"){
+    alert("Вернись на страницу генератора перед началом записи.");
+    combinedStream.getTracks().forEach(track=>track.stop());
+    canvasStream.getTracks().forEach(track=>track.stop());
     return;
   }
 
@@ -541,7 +833,9 @@ videoButton.addEventListener("click",async()=>{
 
   let secondsLeft=60;
   videoButton.textContent=`Запись: ${secondsLeft} сек`;
-  statusNode.textContent="Не закрывай страницу — идёт запись с музыкой";
+  statusNode.textContent=PLATFORM.isIOS
+    ?"Не блокируй экран и не сворачивай Safari — идёт запись"
+    :"Не закрывай и не сворачивай страницу — идёт запись с музыкой";
 
   const countdown=setInterval(()=>{
     secondsLeft--;
@@ -588,14 +882,16 @@ videoButton.addEventListener("click",async()=>{
       return;
     }
 
-    const blob=new Blob(chunks,{type});
-    readyVideoUrl=URL.createObjectURL(blob);
+    const blob=new Blob(chunks,{type:recorder.mimeType||type});
+    readyVideoBlob=blob;
     readyVideoName=`Soul_Mandala_${safeDate}_60sec_WITH_MUSIC.${extension}`;
 
     // Не пытаемся скачивать автоматически спустя 60 секунд:
     // Chrome блокирует такое скачивание без нового жеста пользователя.
     videoButton.textContent="Скачать готовое видео";
-    statusNode.textContent=`Запись готова (${extension.toUpperCase()}) — нажми кнопку ещё раз`;
+    statusNode.textContent=PLATFORM.isIOS
+      ?`Запись готова (${extension.toUpperCase()}) — нажми для сохранения на iPhone`
+      :`Запись готова (${extension.toUpperCase()}) — нажми кнопку ещё раз`;
   };
 
   recorder.start(1000);
