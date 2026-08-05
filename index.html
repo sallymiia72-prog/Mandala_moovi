@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Живая Мандала Души — Golden v1.3 Dual</title>
+<title>Живая Мандала Души — Golden v1.3.1</title>
 <style>
 :root{--bg:#020617;--panel:#04091d;--gold:#e8c66a;--text:#fff9e8}
 *{box-sizing:border-box}
@@ -22,6 +22,15 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 
 .androidVideo{background:linear-gradient(180deg,#218d50,#0d5d31)!important;color:#f4fff8!important}
 .iphoneVideo{background:linear-gradient(180deg,#7b62d8,#4932a0)!important;color:#fff!important}
+
+.readyVideoButton{
+  grid-column:1/-1;
+  background:linear-gradient(180deg,#d79b17,#8b5a00)!important;
+  color:#fff9df!important;
+  border:1px solid rgba(255,224,145,.85)!important;
+  box-shadow:0 0 22px rgba(255,185,55,.32);
+}
+.readyVideoButton[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -30,16 +39,17 @@ canvas{display:block;width:100%;height:100%;min-height:0}
 <div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date" name="mandala_birth_input" autocomplete="off" data-lpignore="true"></div>
 <button id="downloadAndroid" class="androidVideo" type="button">Создать видео для Android</button>
 <button id="downloadIphone" class="iphoneVideo" type="button">Создать видео для iPhone</button>
+<button id="downloadReady" class="readyVideoButton" type="button" hidden>Скачать готовое видео</button>
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
 <main class="stage">
 <canvas id="mandala" width="1080" height="1350"></canvas>
-<div class="status" id="status">Golden v1.3 · Android / iPhone</div>
+<div class="status" id="status">Golden v1.3.1 · Android / iPhone</div>
 </main>
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="Golden-1.3-Dual-Buttons-60s";
+const BROWSER_RECORDER_VERSION="Golden-1.3.1-Dual-Download-Fix";
 
 const PLATFORM=(()=>{
   const ua=navigator.userAgent||"";
@@ -86,10 +96,11 @@ function getSupportedRecordingFormat(mode){
   return candidates.find(item=>MediaRecorder.isTypeSupported(item.type))||null;
 }
 
-async function saveRecordedVideo(blob,fileName){
-  const file=new File([blob],fileName,{type:blob.type||"application/octet-stream"});
+async function saveRecordedVideo(blob,fileName,mode){
+  const mime=blob.type||"application/octet-stream";
+  const file=new File([blob],fileName,{type:mime});
 
-  if(PLATFORM.isIOS&&navigator.share){
+  if(mode==="iphone"&&navigator.share){
     try{
       const shareData={files:[file],title:"Живая Мандала Души"};
       if(!navigator.canShare||navigator.canShare(shareData)){
@@ -98,19 +109,40 @@ async function saveRecordedVideo(blob,fileName){
       }
     }catch(error){
       if(error?.name==="AbortError") return "cancelled";
-      console.warn("iOS share fallback:",error);
+      console.warn("Share failed, using browser fallback:",error);
     }
   }
 
   const url=URL.createObjectURL(blob);
+
+  // Android/desktop: direct download.
   const link=document.createElement("a");
   link.href=url;
   link.download=fileName;
+  link.rel="noopener";
   link.style.display="none";
   document.body.appendChild(link);
-  link.click();
+
+  try{
+    link.dispatchEvent(new MouseEvent("click",{
+      bubbles:true,
+      cancelable:true,
+      view:window
+    }));
+  }catch(_){
+    link.click();
+  }
+
   link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),120000);
+
+  // Fallback for browsers that ignore download attribute.
+  setTimeout(()=>{
+    if(mode==="iphone"){
+      window.open(url,"_blank");
+    }
+  },450);
+
+  setTimeout(()=>URL.revokeObjectURL(url),180000);
   return "downloaded";
 }
 
@@ -143,7 +175,7 @@ function calculateSoulProfile(dateString){
   return {birthDate:dateString,positions:P};
 }
 function createSectorMesh(radius){const t=Math.tan(Math.PI/12),r1=radius*.27,r2=radius*.55,r3=radius*.80,r4=radius,w1=r1*t,w2=r2*t,w3=r3*t,w4=r4*t,O=[0,0],A=[-w1,r1],B=[w1,r1],C=[-w2,r2],D=[0,r2],E=[w2,r2],F=[-w3,r3],G=[-w3/3,r3],H=[w3/3,r3],I=[w3,r3],J=[-w4,r4],K=[0,r4],L=[w4,r4];return[{p:1,pts:[O,A,B]},{p:2,pts:[A,B,D]},{p:3,pts:[A,D,C]},{p:5,pts:[B,E,D]},{p:4,pts:[C,D,G]},{p:7,pts:[C,G,F]},{p:9,pts:[D,H,G]},{p:6,pts:[D,E,H]},{p:11,pts:[E,I,H]},{p:8,pts:[F,G,J]},{p:10,pts:[G,H,K]},{p:12,pts:[H,I,L]}]}
-const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),androidVideoButton=document.getElementById("downloadAndroid"),iphoneVideoButton=document.getElementById("downloadIphone"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status");
+const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),androidVideoButton=document.getElementById("downloadAndroid"),iphoneVideoButton=document.getElementById("downloadIphone"),downloadReadyButton=document.getElementById("downloadReady"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status");
 let profile=calculateSoulProfile(birthInput.value),startedAt=performance.now();
 
 // AUDIO
@@ -687,44 +719,60 @@ imageButton.addEventListener("click",async()=>{
 
 let readyVideoBlob=null;
 let readyVideoName="";
+let readyVideoMode=null;
 let recordingInProgress=false;
 let activeRecordingMode=null;
 
 function clearReadyVideo(){
   readyVideoBlob=null;
   readyVideoName="";
+  readyVideoMode=null;
+  downloadReadyButton.hidden=true;
+  downloadReadyButton.disabled=false;
+  downloadReadyButton.textContent="Скачать готовое видео";
 }
 
 async function downloadReadyVideo(){
-  if(!readyVideoBlob) return false;
-  androidVideoButton.disabled=true;
-  iphoneVideoButton.disabled=true;
-  androidVideoButton.textContent="Сохраняю…";
-  iphoneVideoButton.textContent="Сохраняю…";
+  if(!readyVideoBlob||!readyVideoName) return false;
 
-  const result=await saveRecordedVideo(readyVideoBlob,readyVideoName);
+  downloadReadyButton.disabled=true;
+  downloadReadyButton.textContent=readyVideoMode==="iphone"
+    ?"Открываю сохранение…"
+    :"Скачиваю видео…";
 
-  androidVideoButton.disabled=false;
-  iphoneVideoButton.disabled=false;
-  androidVideoButton.textContent="Создать видео для Android";
-  iphoneVideoButton.textContent="Создать видео для iPhone";
+  try{
+    const result=await saveRecordedVideo(
+      readyVideoBlob,
+      readyVideoName,
+      readyVideoMode
+    );
 
-  if(result==="shared"){
-    statusNode.textContent="Выбери «Сохранить в Файлы» или отправь видео";
-  }else if(result==="cancelled"){
-    statusNode.textContent="Сохранение отменено — видео ещё готово";
-    androidVideoButton.textContent="Скачать готовое видео";
-    iphoneVideoButton.textContent="Скачать готовое видео";
+    if(result==="shared"){
+      statusNode.textContent="Выбери «Сохранить в Файлы» или отправь видео";
+      clearReadyVideo();
+      return true;
+    }
+
+    if(result==="cancelled"){
+      statusNode.textContent="Сохранение отменено — видео осталось готовым";
+      downloadReadyButton.disabled=false;
+      downloadReadyButton.textContent="Скачать готовое видео";
+      return true;
+    }
+
+    statusNode.textContent=readyVideoMode==="iphone"
+      ?"Если меню не открылось, видео появится в новой вкладке"
+      :"Видео отправлено в загрузки телефона";
+
+    setTimeout(clearReadyVideo,10000);
     return true;
-  }else{
-    statusNode.textContent="Видео отправлено на скачивание";
+  }catch(error){
+    console.error("Download failed:",error);
+    statusNode.textContent="Не удалось скачать. Нажми кнопку ещё раз.";
+    downloadReadyButton.disabled=false;
+    downloadReadyButton.textContent="Повторить скачивание";
+    return false;
   }
-
-  setTimeout(()=>{
-    clearReadyVideo();
-    statusNode.textContent="Коснись мандалы — включится звук";
-  },8000);
-  return true;
 }
 
 
@@ -735,7 +783,8 @@ async function startVideoRecording(mode){
   }
   if(recordingInProgress) return;
   if(readyVideoBlob){
-    await downloadReadyVideo();
+    statusNode.textContent="Сначала скачай уже готовое видео";
+    downloadReadyButton.hidden=false;
     return;
   }
 
@@ -793,8 +842,14 @@ async function startVideoRecording(mode){
   recorder.onstop=()=>{
     const blob=new Blob(chunks,{type:recorder.mimeType||type});
     readyVideoBlob=blob;
+    readyVideoMode=mode;
     const safeDate=birthInput.value.split("-").reverse().join("-");
     readyVideoName=`Soul_Mandala_${safeDate}_60sec_${mode.toUpperCase()}.${extension}`;
+    downloadReadyButton.hidden=false;
+    downloadReadyButton.disabled=false;
+    downloadReadyButton.textContent=mode==="iphone"
+      ?"Сохранить готовое видео на iPhone"
+      :"Скачать готовое видео на Android";
 
     combinedStream.getTracks().forEach(track=>track.stop());
     canvasStream.getTracks().forEach(track=>track.stop());
@@ -806,7 +861,7 @@ async function startVideoRecording(mode){
     imageButton.disabled=false;
     birthInput.disabled=false;
 
-    chosenButton.textContent="Скачать готовое видео";
+    chosenButton.textContent=mode==="iphone"?"Создать видео для iPhone":"Создать видео для Android";
     statusNode.textContent=mode==="iphone"
       ?`Видео для iPhone готово (${extension.toUpperCase()})`
       :`Видео для Android готово (${extension.toUpperCase()})`;
@@ -831,6 +886,7 @@ async function startVideoRecording(mode){
 
 androidVideoButton.addEventListener("click",()=>startVideoRecording("android"));
 iphoneVideoButton.addEventListener("click",()=>startVideoRecording("iphone"));
+downloadReadyButton.addEventListener("click",downloadReadyVideo);
 
 window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();
 
