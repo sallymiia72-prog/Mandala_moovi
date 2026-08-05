@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Живая Мандала Души — Golden v1.2 Universal</title>
+<title>Живая Мандала Души — Golden v1.3 Dual</title>
 <style>
 :root{--bg:#020617;--panel:#04091d;--gold:#e8c66a;--text:#fff9e8}
 *{box-sizing:border-box}
@@ -19,23 +19,27 @@ input{font-weight:500}button{cursor:pointer;touch-action:manipulation}button:act
 canvas{display:block;width:100%;height:100%;min-height:0}
 .status{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.38);color:rgba(255,245,214,.82);font-size:11px;white-space:nowrap;pointer-events:none}
 @media(min-width:700px){.toolbar{grid-template-columns:1.2fr 1fr 1fr;align-items:end}.control{grid-column:auto}}
+
+.androidVideo{background:linear-gradient(180deg,#218d50,#0d5d31)!important;color:#f4fff8!important}
+.iphoneVideo{background:linear-gradient(180deg,#7b62d8,#4932a0)!important;color:#fff!important}
 </style>
 </head>
 <body>
 <div class="app">
 <header class="toolbar">
 <div class="control"><label for="birth">Дата рождения</label><input id="birth" type="date" name="mandala_birth_input" autocomplete="off" data-lpignore="true"></div>
-<button id="downloadVideo" type="button">Создать видео · 60 сек</button>
+<button id="downloadAndroid" class="androidVideo" type="button">Создать видео для Android</button>
+<button id="downloadIphone" class="iphoneVideo" type="button">Создать видео для iPhone</button>
 <button id="downloadImage" type="button">Скачать изображение</button>
 </header>
 <main class="stage">
 <canvas id="mandala" width="1080" height="1350"></canvas>
-<div class="status" id="status">Golden v1.2 · Android + iPhone</div>
+<div class="status" id="status">Golden v1.3 · Android / iPhone</div>
 </main>
 </div>
 <script>
 "use strict";
-const BROWSER_RECORDER_VERSION="Golden-1.2-Universal-60s";
+const BROWSER_RECORDER_VERSION="Golden-1.3-Dual-Buttons-60s";
 
 const PLATFORM=(()=>{
   const ua=navigator.userAgent||"";
@@ -51,41 +55,26 @@ const PLATFORM=(()=>{
   return {isIOS,isAndroid,isSafari};
 })();
 
-function getRecordingProfile(){
+function getRecordingProfile(mode){
   const memory=Number(navigator.deviceMemory||4);
-
-  if(PLATFORM.isIOS){
-    return {
-      fps:20,
-      videoBitrate:memory>=6?2800000:2200000,
-      audioBitrate:112000
-    };
+  if(mode==="iphone"){
+    return {fps:30,videoBitrate:memory>=6?7000000:5500000,audioBitrate:128000};
   }
-
-  if(PLATFORM.isAndroid){
-    return {
-      fps:memory>=6?24:memory>=4?22:18,
-      videoBitrate:memory>=6?3200000:memory>=4?2500000:1700000,
-      audioBitrate:112000
-    };
-  }
-
   return {
-    fps:24,
-    videoBitrate:3200000,
+    fps:memory>=6?30:memory>=4?26:22,
+    videoBitrate:memory>=6?5000000:memory>=4?3800000:2600000,
     audioBitrate:128000
   };
 }
 
-function getSupportedRecordingFormat(){
-  const iosCandidates=[
+function getSupportedRecordingFormat(mode){
+  const iphoneCandidates=[
     {type:'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',ext:"mp4"},
     {type:"video/mp4;codecs=h264,aac",ext:"mp4"},
     {type:"video/mp4",ext:"mp4"},
     {type:"video/webm;codecs=vp8,opus",ext:"webm"},
     {type:"video/webm",ext:"webm"}
   ];
-
   const androidCandidates=[
     {type:"video/webm;codecs=vp8,opus",ext:"webm"},
     {type:"video/webm;codecs=vp9,opus",ext:"webm"},
@@ -93,8 +82,7 @@ function getSupportedRecordingFormat(){
     {type:"video/mp4;codecs=h264,aac",ext:"mp4"},
     {type:"video/mp4",ext:"mp4"}
   ];
-
-  const candidates=PLATFORM.isIOS?iosCandidates:androidCandidates;
+  const candidates=mode==="iphone"?iphoneCandidates:androidCandidates;
   return candidates.find(item=>MediaRecorder.isTypeSupported(item.type))||null;
 }
 
@@ -155,7 +143,7 @@ function calculateSoulProfile(dateString){
   return {birthDate:dateString,positions:P};
 }
 function createSectorMesh(radius){const t=Math.tan(Math.PI/12),r1=radius*.27,r2=radius*.55,r3=radius*.80,r4=radius,w1=r1*t,w2=r2*t,w3=r3*t,w4=r4*t,O=[0,0],A=[-w1,r1],B=[w1,r1],C=[-w2,r2],D=[0,r2],E=[w2,r2],F=[-w3,r3],G=[-w3/3,r3],H=[w3/3,r3],I=[w3,r3],J=[-w4,r4],K=[0,r4],L=[w4,r4];return[{p:1,pts:[O,A,B]},{p:2,pts:[A,B,D]},{p:3,pts:[A,D,C]},{p:5,pts:[B,E,D]},{p:4,pts:[C,D,G]},{p:7,pts:[C,G,F]},{p:9,pts:[D,H,G]},{p:6,pts:[D,E,H]},{p:11,pts:[E,I,H]},{p:8,pts:[F,G,J]},{p:10,pts:[G,H,K]},{p:12,pts:[H,I,L]}]}
-const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),videoButton=document.getElementById("downloadVideo"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status");
+const canvas=document.getElementById("mandala"),ctx=canvas.getContext("2d",{alpha:false}),birthInput=document.getElementById("birth"),androidVideoButton=document.getElementById("downloadAndroid"),iphoneVideoButton=document.getElementById("downloadIphone"),imageButton=document.getElementById("downloadImage"),statusNode=document.getElementById("status");
 let profile=calculateSoulProfile(birthInput.value),startedAt=performance.now();
 
 // AUDIO
@@ -249,7 +237,7 @@ function drawBackground(w,h,time){
   ctx.fillStyle=nebula;
   ctx.fillRect(0,0,w,h);
 
-  for(let i=0;i<210;i++){
+  for(let i=0;i<(activeRecordingMode==="iphone"?120:210);i++){
     const a=i*2.399963;
     const d=((i*61)%100)/100*Math.max(w,h)*.66;
     const drift=Math.sin(time*.00018+i*.91)*2.2;
@@ -700,6 +688,7 @@ imageButton.addEventListener("click",async()=>{
 let readyVideoBlob=null;
 let readyVideoName="";
 let recordingInProgress=false;
+let activeRecordingMode=null;
 
 function clearReadyVideo(){
   readyVideoBlob=null;
@@ -708,20 +697,24 @@ function clearReadyVideo(){
 
 async function downloadReadyVideo(){
   if(!readyVideoBlob) return false;
-
-  videoButton.disabled=true;
-  videoButton.textContent=PLATFORM.isIOS?"Открываю меню сохранения…":"Сохраняю видео…";
+  androidVideoButton.disabled=true;
+  iphoneVideoButton.disabled=true;
+  androidVideoButton.textContent="Сохраняю…";
+  iphoneVideoButton.textContent="Сохраняю…";
 
   const result=await saveRecordedVideo(readyVideoBlob,readyVideoName);
 
-  videoButton.disabled=false;
-  videoButton.textContent="Создать видео · 60 сек";
+  androidVideoButton.disabled=false;
+  iphoneVideoButton.disabled=false;
+  androidVideoButton.textContent="Создать видео для Android";
+  iphoneVideoButton.textContent="Создать видео для iPhone";
 
   if(result==="shared"){
     statusNode.textContent="Выбери «Сохранить в Файлы» или отправь видео";
   }else if(result==="cancelled"){
     statusNode.textContent="Сохранение отменено — видео ещё готово";
-    videoButton.textContent="Скачать готовое видео";
+    androidVideoButton.textContent="Скачать готовое видео";
+    iphoneVideoButton.textContent="Скачать готовое видео";
     return true;
   }else{
     statusNode.textContent="Видео отправлено на скачивание";
@@ -731,80 +724,47 @@ async function downloadReadyVideo(){
     clearReadyVideo();
     statusNode.textContent="Коснись мандалы — включится звук";
   },8000);
-
   return true;
 }
 
-videoButton.addEventListener("click",async()=>{
-  // Второе нажатие после записи — настоящее пользовательское скачивание.
+
+async function startVideoRecording(mode){
+  if(!profile||!birthInput.value){
+    alert("Сначала введи дату рождения.");
+    return;
+  }
+  if(recordingInProgress) return;
   if(readyVideoBlob){
     await downloadReadyVideo();
     return;
   }
 
-  if(recordingInProgress) return;
-
-  if(typeof syncProfileFromInput==="function"){
-    if(!syncProfileFromInput(false)){
-      alert("Сначала введи дату рождения.");
-      return;
-    }
-  }else if(!birthInput.value || !profile){
-    alert("Сначала введи дату рождения.");
-    return;
-  }
-
-  const audioReady=await ensureAudio();
-  if(!audioReady || !ac || ac.state!=="running"){
-    alert("Коснись мандалы, чтобы включить музыку, затем снова нажми кнопку видео.");
-    return;
-  }
-
-  if(!window.MediaRecorder || typeof canvas.captureStream!=="function"){
-    alert("Запись видео не поддерживается этим браузером.");
-    return;
-  }
-
-  clearReadyVideo();
-
-  const recordingDate=birthInput.value;
-  const safeDate=recordingDate.split("-").reverse().join("-");
-
-  const format=getSupportedRecordingFormat();
+  const chosenButton=mode==="iphone"?iphoneVideoButton:androidVideoButton;
+  const otherButton=mode==="iphone"?androidVideoButton:iphoneVideoButton;
+  const format=getSupportedRecordingFormat(mode);
   const type=format?.type||"";
   const extension=format?.ext||"";
 
   if(!type){
-    alert("Этот браузер не поддерживает запись видео.");
+    alert(mode==="iphone"
+      ?"Открой страницу в Safari: текущий браузер не поддерживает запись для iPhone."
+      :"Этот браузер не поддерживает запись видео.");
     return;
   }
 
-  if(!dest || !dest.stream || dest.stream.getAudioTracks().length===0){
-    alert("Не удалось подготовить музыкальную дорожку. Обнови страницу и коснись мандалы.");
-    return;
-  }
+  const recordingProfile=getRecordingProfile(mode);
+  activeRecordingMode=mode;
 
-  const recordingProfile=getRecordingProfile();
+  await ensureAudioStarted();
+  updateMusicForCurrentProfile();
+
   const canvasStream=canvas.captureStream(recordingProfile.fps);
-  const combinedStream=new MediaStream();
+  const audioTrack=audioDestination?.stream?.getAudioTracks?.()[0];
+  const combinedStream=audioTrack
+    ?new MediaStream([...canvasStream.getVideoTracks(),audioTrack])
+    :canvasStream;
 
-  const videoTrack=canvasStream.getVideoTracks()[0];
-  const sourceAudioTrack=dest.stream.getAudioTracks()[0];
-  const audioTrack=sourceAudioTrack ? sourceAudioTrack.clone() : null;
-
-  if(videoTrack) combinedStream.addTrack(videoTrack);
-  if(audioTrack) combinedStream.addTrack(audioTrack);
-
-  if(combinedStream.getVideoTracks().length===0 || combinedStream.getAudioTracks().length===0){
-    canvasStream.getTracks().forEach(track=>track.stop());
-    if(audioTrack) audioTrack.stop();
-    alert("Не удалось соединить изображение и музыку.");
-    return;
-  }
-
-  const chunks=[];
   let recorder;
-
   try{
     recorder=new MediaRecorder(combinedStream,{
       mimeType:type,
@@ -812,97 +772,65 @@ videoButton.addEventListener("click",async()=>{
       audioBitsPerSecond:recordingProfile.audioBitrate
     });
   }catch(error){
-    combinedStream.getTracks().forEach(track=>track.stop());
     console.error(error);
-    alert("Не удалось запустить запись.");
-    return;
-  }
-
-  if(document.visibilityState!=="visible"){
-    alert("Вернись на страницу генератора перед началом записи.");
     combinedStream.getTracks().forEach(track=>track.stop());
-    canvasStream.getTracks().forEach(track=>track.stop());
+    activeRecordingMode=null;
+    alert("Не удалось запустить запись в выбранном формате.");
     return;
   }
 
   recordingInProgress=true;
-  const originalText=videoButton.textContent;
-  videoButton.disabled=true;
+  chosenButton.disabled=true;
+  otherButton.disabled=true;
   imageButton.disabled=true;
   birthInput.disabled=true;
 
-  let secondsLeft=60;
-  videoButton.textContent=`Запись: ${secondsLeft} сек`;
-  statusNode.textContent=PLATFORM.isIOS
-    ?"Не блокируй экран и не сворачивай Safari — идёт запись"
-    :"Не закрывай и не сворачивай страницу — идёт запись с музыкой";
-
-  const countdown=setInterval(()=>{
-    secondsLeft--;
-    if(secondsLeft>0){
-      videoButton.textContent=`Запись: ${secondsLeft} сек`;
-    }
-  },1000);
-
+  const chunks=[];
   recorder.ondataavailable=event=>{
-    if(event.data && event.data.size>0){
-      chunks.push(event.data);
-    }
-  };
-
-  recorder.onerror=event=>{
-    console.error("MediaRecorder error:",event.error);
-  };
-
-  recorder.onstart=()=>{
-    startedAt=performance.now();
-    if(timer){
-      clearInterval(timer);
-      timer=0;
-    }
-    startSequence();
+    if(event.data&&event.data.size>0) chunks.push(event.data);
   };
 
   recorder.onstop=()=>{
-    clearInterval(countdown);
-    recordingInProgress=false;
+    const blob=new Blob(chunks,{type:recorder.mimeType||type});
+    readyVideoBlob=blob;
+    const safeDate=birthInput.value.split("-").reverse().join("-");
+    readyVideoName=`Soul_Mandala_${safeDate}_60sec_${mode.toUpperCase()}.${extension}`;
 
     combinedStream.getTracks().forEach(track=>track.stop());
     canvasStream.getTracks().forEach(track=>track.stop());
 
+    recordingInProgress=false;
+    activeRecordingMode=null;
+    chosenButton.disabled=false;
+    otherButton.disabled=false;
     imageButton.disabled=false;
     birthInput.disabled=false;
-    videoButton.disabled=false;
 
-    const totalSize=chunks.reduce((sum,chunk)=>sum+chunk.size,0);
-    if(totalSize<1000){
-      videoButton.textContent=originalText;
-      statusNode.textContent="Запись не создана";
-      alert("Браузер не создал видео. Не закрывай и не сворачивай вкладку во время записи.");
-      return;
-    }
-
-    const blob=new Blob(chunks,{type:recorder.mimeType||type});
-    readyVideoBlob=blob;
-    readyVideoName=`Soul_Mandala_${safeDate}_60sec_WITH_MUSIC.${extension}`;
-
-    // Не пытаемся скачивать автоматически спустя 60 секунд:
-    // Chrome блокирует такое скачивание без нового жеста пользователя.
-    videoButton.textContent="Скачать готовое видео";
-    statusNode.textContent=PLATFORM.isIOS
-      ?`Запись готова (${extension.toUpperCase()}) — нажми для сохранения на iPhone`
-      :`Запись готова (${extension.toUpperCase()}) — нажми кнопку ещё раз`;
+    chosenButton.textContent="Скачать готовое видео";
+    statusNode.textContent=mode==="iphone"
+      ?`Видео для iPhone готово (${extension.toUpperCase()})`
+      :`Видео для Android готово (${extension.toUpperCase()})`;
   };
 
   recorder.start(1000);
+  let secondsLeft=60;
+  chosenButton.textContent=`Запись: ${secondsLeft} сек`;
+  statusNode.textContent=mode==="iphone"
+    ?"Режим iPhone: высокая чёткость, не сворачивай Safari"
+    :"Режим Android: высокая детализация, не сворачивай страницу";
 
-  setTimeout(()=>{
-    if(recorder.state==="recording"){
-      recorder.requestData();
-      setTimeout(()=>recorder.stop(),800);
+  const timer=setInterval(()=>{
+    secondsLeft--;
+    chosenButton.textContent=`Запись: ${secondsLeft} сек`;
+    if(secondsLeft<=0){
+      clearInterval(timer);
+      if(recorder.state!=="inactive") recorder.stop();
     }
-  },60000);
-});
+  },1000);
+}
+
+androidVideoButton.addEventListener("click",()=>startVideoRecording("android"));
+iphoneVideoButton.addEventListener("click",()=>startVideoRecording("iphone"));
 
 window.addEventListener("resize",resizeCanvas);window.addEventListener("orientationchange",()=>setTimeout(resizeCanvas,180));resizeCanvas();
 
